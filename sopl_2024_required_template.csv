@@ -1,0 +1,6 @@
+company_id,company_name,region,industry,company_type,employee_count,revenue_band,partner_team_size,program_maturity,partner_sourced_revenue_pct,partner_influenced_revenue_pct,ecosystem_ACV_uplift_pct,pipeline_from_partners_pct,time_to_first_partner_win_days,num_active_partners,annual_partner_budget_usd,tooling_spend_usd,enablement_hours_per_qtr,has_formal_training,sales_alignment_score,goal_setting_clarity_score,top_challenge,exec_alignment_score,overall_program_health
+C001,Acme SaaS,NA,SaaS,Scaleup,120,20-100M,5,Developing,22,45,10,35,90,60,250000,40000,28,Yes,4.1,3.8,Partner Sourcing,4.2,3.9
+C002,FinCore,EMEA,Fintech,Enterprise,2200,500M+,18,Mature,38,62,14,48,60,200,1200000,210000,40,Yes,4.6,4.4,Data Quality,4.7,4.5
+C003,BuildWare,APAC,Hardware,Scaleup,450,100-500M,7,Early,15,30,6,22,140,95,300000,80000,16,No,3.5,3.2,Partner Enablement,3.6,3.3
+C004,MarketHub,LATAM,Marketplace,Startup,52,<5M,1,Early,8,20,3,12,180,25,50000,5000,8,No,3.0,2.7,Tooling,3.2,2.9
+C005,ServiceNest,NA,Services,Enterprise,3100,100-500M,25,Mature,44,70,18,55,45,420,1800000,350000,56,Yes,4.8,4.6,Sales Alignment,4.9,4.7
