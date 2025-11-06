@@ -466,24 +466,51 @@ if {"program_maturity","industry","time_to_first_revenue_years"}.issubset(flt.co
 
 st.divider()
 
-# -------------------- Biggest challenge --------------------
+# ───────────────────────── Question 5: Biggest challenge ─────────────────────────
 st.subheader("Biggest Challenge × Program Maturity")
+
 if {"top_challenge","program_maturity"}.issubset(flt.columns):
     d = flt[["top_challenge","program_maturity"]].dropna()
     if not d.empty:
-        norm = (d.groupby(["program_maturity","top_challenge"]).size()
-                  .groupby(level=0).apply(lambda s: 100 * s / s.sum()).reset_index(name="pct"))
-        top_chal = norm.groupby("top_challenge")["pct"].sum().sort_values(ascending=False).head(12).index.tolist()
+        # 1) Count combinations cleanly into a DataFrame
+        counts = (
+            d.groupby(["program_maturity","top_challenge"], as_index=False)
+             .size()
+             .rename(columns={"size": "n"})
+        )
+
+        # 2) Normalize within each maturity to get shares (%)
+        norm = (
+            counts
+            .groupby("program_maturity", group_keys=False)
+            .apply(lambda g: g.assign(pct=100 * g["n"] / g["n"].sum()))
+            .reset_index(drop=True)
+        )
+
+        # 3) Keep the most common challenges overall (by total pct mass)
+        top_chal = (
+            norm.groupby("top_challenge", as_index=False)["pct"]
+                .sum()
+                .sort_values("pct", ascending=False)
+                .head(12)["top_challenge"]
+                .tolist()
+        )
         norm = norm[norm["top_challenge"].isin(top_chal)]
+
+        # 4) Heatmap
         chart = alt.Chart(norm).mark_rect().encode(
             x=alt.X("program_maturity:N", title="Program Maturity"),
             y=alt.Y("top_challenge:N", title="Top Challenge", sort="-x"),
             color=alt.Color("pct:Q", title="Share within maturity (%)"),
-            tooltip=["program_maturity","top_challenge", alt.Tooltip("pct:Q", format=".1f")]
+            tooltip=[
+                "program_maturity",
+                "top_challenge",
+                alt.Tooltip("pct:Q", format=".1f"),
+                alt.Tooltip("n:Q", title="N")
+            ]
         ).properties(title="What Blocks Growth? (normalized within maturity)", height=360)
-        render_chart(chart, "challenge_matrix")
 
-st.divider()
+        render_chart(chart, "challenge_matrix")
 
 # -------------------- Marketplace revenue --------------------
 st.subheader("Cloud Marketplace Revenue by Industry")
