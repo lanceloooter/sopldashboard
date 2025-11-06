@@ -413,40 +413,48 @@ def main():
     with col_stat1:
         st.metric("Total Companies", f"{len(df):,}")
     with col_stat2:
-        st.metric("Industries", f"{df['industry'].nunique() if 'industry' in df.columns else 0}")
+        industries_count = df['industry'].nunique() if 'industry' in df.columns else 0
+        st.metric("Industries", f"{industries_count}")
     with col_stat3:
-        st.metric("Regions", f"{df['region'].nunique() if 'region' in df.columns else 0}")
+        regions_count = df['region'].nunique() if 'region' in df.columns else 0
+        st.metric("Regions", f"{regions_count}")
     with col_stat4:
         st.metric("Data Quality", f"{(1 - len(missing)/len(SYN)) * 100:.1f}%")
 
     st.markdown("---")
 
+    # Initialize filter variables
+    industries = []
+    regions = []
+    maturity_levels = []
+    revenue_bands = []
+
     # Filters in Sidebar
     with st.sidebar:
         st.markdown("### 🔍 Filters")
         
-        # Quick Filters
-        industries = []
-        regions = []
-        maturity_levels = []
-        
+        # Quick Filters - with safe column existence checks
         if 'industry' in df.columns:
-            industries = st.multiselect("Industries", options=sorted(df['industry'].unique()), 
-                                      default=sorted(df['industry'].unique())[:5] if len(df) > 5 else sorted(df['industry'].unique()))
+            industry_options = sorted(df['industry'].dropna().unique())
+            industries = st.multiselect("Industries", options=industry_options, 
+                                      default=industry_options[:5] if len(industry_options) > 5 else industry_options)
         
         if 'region' in df.columns:
-            regions = st.multiselect("Regions", options=sorted(df['region'].unique()), 
-                                   default=sorted(df['region'].unique()))
+            region_options = sorted(df['region'].dropna().unique())
+            regions = st.multiselect("Regions", options=region_options, 
+                                   default=region_options)
         
         if 'program_maturity' in df.columns:
-            maturity_levels = st.multiselect("Program Maturity", options=sorted(df['program_maturity'].unique()),
-                                           default=sorted(df['program_maturity'].unique()))
+            maturity_options = sorted(df['program_maturity'].dropna().unique())
+            maturity_levels = st.multiselect("Program Maturity", options=maturity_options,
+                                           default=maturity_options)
         
         if 'revenue_band' in df.columns:
-            revenue_bands = st.multiselect("Revenue Bands", options=sorted(df['revenue_band'].unique()),
-                                         default=sorted(df['revenue_band'].unique()))
+            revenue_options = sorted(df['revenue_band'].dropna().unique())
+            revenue_bands = st.multiselect("Revenue Bands", options=revenue_options,
+                                         default=revenue_options)
 
-    # Apply Filters
+    # Apply Filters safely
     flt = df.copy()
     if 'industry' in flt and industries:
         flt = flt[flt['industry'].isin(industries)]
@@ -467,24 +475,32 @@ def main():
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            if "expected_partner_revenue_pct" in flt.columns:
+            if "expected_partner_revenue_pct" in flt.columns and not flt["expected_partner_revenue_pct"].isna().all():
                 median_val = flt["expected_partner_revenue_pct"].median()
                 create_metric_card(median_val, "Expected Partner Revenue", f"{median_val:.1f}%", help_text="Median expected revenue from partnerships")
+            else:
+                create_metric_card("—", "Expected Partner Revenue", help_text="No data available")
         
         with col2:
-            if "marketplace_revenue_pct" in flt.columns:
+            if "marketplace_revenue_pct" in flt.columns and not flt["marketplace_revenue_pct"].isna().all():
                 median_val = flt["marketplace_revenue_pct"].median()
                 create_metric_card(median_val, "Marketplace Revenue", f"{median_val:.1f}%", help_text="Revenue through cloud marketplaces")
+            else:
+                create_metric_card("—", "Marketplace Revenue", help_text="No data available")
         
         with col3:
-            if "partner_team_size_est" in flt.columns:
+            if "partner_team_size_est" in flt.columns and not flt["partner_team_size_est"].isna().all():
                 median_val = flt["partner_team_size_est"].median()
                 create_metric_card(median_val, "Team Size", f"{median_val:.0f} people", "{:.0f}", help_text="Median partner team size")
+            else:
+                create_metric_card("—", "Team Size", help_text="No data available")
         
         with col4:
-            if "time_to_first_revenue_years" in flt.columns:
+            if "time_to_first_revenue_years" in flt.columns and not flt["time_to_first_revenue_years"].isna().all():
                 median_val = flt["time_to_first_revenue_years"].median()
                 create_metric_card(median_val, "Time to Revenue", f"{median_val:.1f} yrs", help_text="Years to first partnership revenue")
+            else:
+                create_metric_card("—", "Time to Revenue", help_text="No data available")
 
         st.markdown("---")
         
@@ -504,6 +520,10 @@ def main():
                         color=alt.Color("program_maturity:N", scale=alt.Scale(range=HOUSE_COLORS), legend=None)
                     ).properties(title="Revenue Distribution by Program Maturity", height=300)
                     st.altair_chart(chart, use_container_width=True)
+                else:
+                    st.info("No data available for revenue distribution")
+            else:
+                st.info("Revenue distribution data not available")
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col_chart2:
@@ -518,6 +538,10 @@ def main():
                         tooltip=["region", "mean(expected_partner_revenue_pct)"]
                     ).properties(title="Average Revenue by Region", height=300)
                     st.altair_chart(chart, use_container_width=True)
+                else:
+                    st.info("No data available for regional analysis")
+            else:
+                st.info("Regional revenue data not available")
             st.markdown('</div>', unsafe_allow_html=True)
     
     with tab2:
@@ -528,17 +552,22 @@ def main():
         with col_part1:
             st.markdown('<div class="chart-container">', unsafe_allow_html=True)
             if {"total_partners_est", "active_partners_est"}.issubset(flt.columns):
-                summary_data = pd.DataFrame({
-                    'Type': ['Total Partners', 'Active Partners'],
-                    'Count': [flt['total_partners_est'].median(), flt['active_partners_est'].median()]
-                })
-                
-                chart = alt.Chart(summary_data).mark_bar(size=50).encode(
-                    x=alt.X('Type:N', title=''),
-                    y=alt.Y('Count:Q', title='Median Count'),
-                    color=alt.Color('Type:N', scale=alt.Scale(range=HOUSE_COLORS[:2]), legend=None)
-                ).properties(title="Partner Portfolio Size", height=300)
-                st.altair_chart(chart, use_container_width=True)
+                if not flt["total_partners_est"].isna().all() and not flt["active_partners_est"].isna().all():
+                    summary_data = pd.DataFrame({
+                        'Type': ['Total Partners', 'Active Partners'],
+                        'Count': [flt['total_partners_est'].median(), flt['active_partners_est'].median()]
+                    })
+                    
+                    chart = alt.Chart(summary_data).mark_bar(size=50).encode(
+                        x=alt.X('Type:N', title=''),
+                        y=alt.Y('Count:Q', title='Median Count'),
+                        color=alt.Color('Type:N', scale=alt.Scale(range=HOUSE_COLORS[:2]), legend=None)
+                    ).properties(title="Partner Portfolio Size", height=300)
+                    st.altair_chart(chart, use_container_width=True)
+                else:
+                    st.info("No partner count data available")
+            else:
+                st.info("Partner portfolio data not available")
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col_part2:
@@ -557,6 +586,10 @@ def main():
                         tooltip=['top_challenge', 'program_maturity', 'count']
                     ).properties(title="Top Challenges by Program Maturity", height=400)
                     st.altair_chart(chart, use_container_width=True)
+                else:
+                    st.info("No challenge data available")
+            else:
+                st.info("Challenge analysis data not available")
             st.markdown('</div>', unsafe_allow_html=True)
     
     with tab3:
@@ -566,24 +599,38 @@ def main():
         col_perf1, col_perf2, col_perf3, col_perf4 = st.columns(4)
         
         with col_perf1:
-            if "partners_active_ratio" in flt.columns:
+            if "partners_active_ratio" in flt.columns and not flt["partners_active_ratio"].isna().all():
                 activation_median = flt["partners_active_ratio"].median()
                 create_metric_card(activation_median, "Activation Rate", f"{activation_median:.1%}", "{:.2f}")
+            else:
+                create_metric_card("—", "Activation Rate")
         
         with col_perf2:
-            if "expected_partner_revenue_per_partner" in flt.columns:
+            if "expected_partner_revenue_per_partner" in flt.columns and not flt["expected_partner_revenue_per_partner"].isna().all():
                 revenue_per_partner = flt["expected_partner_revenue_per_partner"].median()
                 create_metric_card(revenue_per_partner, "Revenue per Partner", f"${revenue_per_partner:.0f}", "{:.0f}")
+            else:
+                create_metric_card("—", "Revenue per Partner")
         
         with col_perf3:
             if {"partner_team_size_est", "employee_count_est"}.issubset(flt.columns):
-                team_per_1k = (flt["partner_team_size_est"] / (flt["employee_count_est"] / 1000)).median()
-                create_metric_card(team_per_1k, "Team per 1K Employees", f"{team_per_1k:.1f}", "{:.1f}")
+                if not flt["partner_team_size_est"].isna().all() and not flt["employee_count_est"].isna().all():
+                    team_per_1k = (flt["partner_team_size_est"] / (flt["employee_count_est"] / 1000)).median()
+                    create_metric_card(team_per_1k, "Team per 1K Employees", f"{team_per_1k:.1f}", "{:.1f}")
+                else:
+                    create_metric_card("—", "Team per 1K Employees")
+            else:
+                create_metric_card("—", "Team per 1K Employees")
         
         with col_perf4:
             if "total_partners_est" in flt.columns and "active_partners_est" in flt.columns:
-                total_active_ratio = flt["active_partners_est"].sum() / flt["total_partners_est"].sum()
-                create_metric_card(total_active_ratio, "Overall Activation", f"{total_active_ratio:.1%}", "{:.2f}")
+                if not flt["total_partners_est"].isna().all() and not flt["active_partners_est"].isna().all():
+                    total_active_ratio = flt["active_partners_est"].sum() / flt["total_partners_est"].sum()
+                    create_metric_card(total_active_ratio, "Overall Activation", f"{total_active_ratio:.1%}", "{:.2f}")
+                else:
+                    create_metric_card("—", "Overall Activation")
+            else:
+                create_metric_card("—", "Overall Activation")
 
         st.markdown("---")
         
@@ -605,6 +652,10 @@ def main():
                         tooltip=["industry", alt.Tooltip("partners_active_ratio:Q", format=".2f")]
                     ).properties(title="Activation Ratio by Industry (Top 10)", height=400)
                     st.altair_chart(bars2, use_container_width=True)
+                else:
+                    st.info("No activation ratio data available by industry")
+            else:
+                st.info("Industry activation data not available")
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col_perf_chart2:
@@ -621,6 +672,10 @@ def main():
                         tooltip=["industry","program_maturity", alt.Tooltip("mean(time_to_first_revenue_years):Q", format=".2f")]
                     ).properties(title="Time to Revenue by Maturity × Industry", height=400)
                     st.altair_chart(chart, use_container_width=True)
+                else:
+                    st.info("No time to revenue data available")
+            else:
+                st.info("Time to revenue data not available")
             st.markdown('</div>', unsafe_allow_html=True)
     
     with tab4:
