@@ -533,4 +533,331 @@ if {"expected_partner_revenue_pct","program_maturity"}.issubset(flt.columns):
         
         st.markdown(f"**{title}** — _{subtitle}_")
         base = alt.Chart(d).transform_density(
-            "expected_partner_revenue_pct", groupby=[cohort_col], as_=["value","density
+            "expected_partner_revenue_pct", groupby=[cohort_col], as_=["value", "density"]
+        )
+        chart = base.mark_area(opacity=0.6, line=True).encode(
+            x=alt.X("value:Q", title="Expected Partner Revenue (%)", scale=alt.Scale(domain=[0, 100])),
+            y=alt.Y("density:Q", title="Density"),
+            color=alt.Color(f"{cohort_col}:N", title=cohort_col.replace("_"," ").title(), scale=alt.Scale(scheme="purples")),
+            tooltip=[
+                alt.Tooltip(f"{cohort_col}:N", title=cohort_col.replace("_"," ").title()),
+                alt.Tooltip("value:Q", format=".1f", title="Revenue %"),
+                alt.Tooltip("density:Q", format=".3f")
+            ]
+        ).properties(height=280)
+        render_chart(chart, f"exp_rev_{cohort_col}_density")
+
+    if {"region","expected_partner_revenue_pct"}.issubset(flt.columns):
+        d = flt[["region","expected_partner_revenue_pct"]].dropna()
+        if not d.empty:
+            st.markdown("**Regional Comparison** — _Geographic patterns in partner revenue expectations_")
+            chart = alt.Chart(d).mark_boxplot(size=50, extent='min-max').encode(
+                x=alt.X("region:N", title="Region", sort="-y"),
+                y=alt.Y("expected_partner_revenue_pct:Q", title="Expected Partner Revenue (%)", scale=alt.Scale(zero=False)),
+                color=alt.Color("region:N", legend=None, scale=alt.Scale(scheme="category10"))
+            ).properties(height=280)
+            render_chart(chart, "exp_rev_region_box")
+
+st.divider()
+
+# -------------------- Partner counts & activation --------------------
+st.markdown('<div class="section-header"><h2>🎯 Partner Portfolio & Activation</h2></div>', unsafe_allow_html=True)
+
+col_left, col_right = st.columns(2)
+
+with col_left:
+    if {"revenue_band","partners_active_ratio"}.issubset(flt.columns):
+        d = flt[["revenue_band","partners_active_ratio"]].dropna()
+        if not d.empty:
+            st.markdown("**Activation by Revenue Band** — _Median active/total partner ratio_")
+            agg = d.groupby("revenue_band")["partners_active_ratio"].median().reset_index()
+            bars = alt.Chart(agg).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
+                x=alt.X("revenue_band:N", title="Revenue Band", sort="-y"),
+                y=alt.Y("partners_active_ratio:Q", title="Median Activation Ratio", scale=alt.Scale(domain=[0, 1])),
+                color=alt.Color("partners_active_ratio:Q", scale=alt.Scale(scheme="purples"), legend=None),
+                tooltip=[
+                    alt.Tooltip("revenue_band:N", title="Revenue Band"),
+                    alt.Tooltip("partners_active_ratio:Q", format=".2%", title="Activation Ratio")
+                ]
+            ).properties(height=300)
+            render_chart(bars, "activation_by_revenue_band", height=300)
+
+with col_right:
+    if {"industry","partners_active_ratio"}.issubset(flt.columns):
+        d2 = flt[["industry","partners_active_ratio"]].dropna()
+        if not d2.empty:
+            st.markdown("**Top Industries by Activation** — _Leading sectors in partner engagement_")
+            topN = d2["industry"].value_counts().head(10).index.tolist()
+            d2 = d2[d2["industry"].isin(topN)]
+            agg2 = d2.groupby("industry")["partners_active_ratio"].median().sort_values(ascending=False).reset_index()
+            bars2 = alt.Chart(agg2).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
+                x=alt.X("partners_active_ratio:Q", title="Median Activation Ratio", scale=alt.Scale(domain=[0, 1])),
+                y=alt.Y("industry:N", sort="-x", title=""),
+                color=alt.Color("partners_active_ratio:Q", scale=alt.Scale(scheme="purples"), legend=None),
+                tooltip=[
+                    alt.Tooltip("industry:N", title="Industry"),
+                    alt.Tooltip("partners_active_ratio:Q", format=".2%", title="Activation Ratio")
+                ]
+            ).properties(height=300)
+            render_chart(bars2, "activation_by_industry", height=300)
+
+st.divider()
+
+# -------------------- Time to first revenue --------------------
+st.markdown('<div class="section-header"><h2>⏱️ Partnership Ramp Speed</h2></div>', unsafe_allow_html=True)
+
+if {"program_maturity","industry","time_to_first_revenue_years"}.issubset(flt.columns):
+    d = flt[["program_maturity","industry","time_to_first_revenue_years"]].dropna()
+    if not d.empty:
+        st.markdown("**Time to First Revenue Heatmap** — _How quickly partnerships generate revenue by maturity and industry_")
+        top_ind = d["industry"].value_counts().head(10).index.tolist()
+        d = d[d["industry"].isin(top_ind)]
+        heat = alt.Chart(d).mark_rect(stroke='white', strokeWidth=2).encode(
+            x=alt.X("program_maturity:N", title="Program Maturity", sort=["Early", "Developing", "Mature", "Unknown"]),
+            y=alt.Y("industry:N", title="Industry", sort="-color"),
+            color=alt.Color("mean(time_to_first_revenue_years):Q", 
+                          title="Avg Years to Revenue",
+                          scale=alt.Scale(scheme="purples", reverse=True)),
+            tooltip=[
+                alt.Tooltip("industry:N", title="Industry"),
+                alt.Tooltip("program_maturity:N", title="Maturity"),
+                alt.Tooltip("mean(time_to_first_revenue_years):Q", format=".2f", title="Avg Years"),
+                alt.Tooltip("count():Q", title="Responses")
+            ],
+        ).properties(height=400)
+        render_chart(heat, "ttf_heatmap", height=400)
+
+st.divider()
+
+# -------------------- Biggest challenge --------------------
+st.markdown('<div class="section-header"><h2>🚧 Growth Challenges by Maturity</h2></div>', unsafe_allow_html=True)
+
+if {"top_challenge","program_maturity"}.issubset(flt.columns):
+    d = flt[["top_challenge","program_maturity"]].dropna()
+    if not d.empty:
+        st.markdown("**Challenge Distribution** — _What blocks partner program growth at different stages_")
+        counts = (
+            d.groupby(["program_maturity","top_challenge"], as_index=False)
+             .size()
+             .rename(columns={"size": "n"})
+        )
+
+        norm = (
+            counts
+            .groupby("program_maturity", group_keys=False)
+            .apply(lambda g: g.assign(pct=100 * g["n"] / g["n"].sum()))
+            .reset_index(drop=True)
+        )
+
+        top_chal = (
+            norm.groupby("top_challenge", as_index=False)["pct"]
+                .sum()
+                .sort_values("pct", ascending=False)
+                .head(10)["top_challenge"]
+                .tolist()
+        )
+        norm = norm[norm["top_challenge"].isin(top_chal)]
+
+        chart = alt.Chart(norm).mark_rect(stroke='white', strokeWidth=2).encode(
+            x=alt.X("program_maturity:N", title="Program Maturity", sort=["Early", "Developing", "Mature", "Unknown"]),
+            y=alt.Y("top_challenge:N", title="Challenge", sort="-color"),
+            color=alt.Color("pct:Q", 
+                          title="% Within Maturity",
+                          scale=alt.Scale(scheme="purples")),
+            tooltip=[
+                alt.Tooltip("program_maturity:N", title="Maturity"),
+                alt.Tooltip("top_challenge:N", title="Challenge"),
+                alt.Tooltip("pct:Q", format=".1f", title="% of Segment"),
+                alt.Tooltip("n:Q", title="Count")
+            ]
+        ).properties(height=400)
+
+        render_chart(chart, "challenge_matrix", height=400)
+
+st.divider()
+
+# -------------------- Marketplace revenue --------------------
+st.markdown('<div class="section-header"><h2>☁️ Cloud Marketplace Performance</h2></div>', unsafe_allow_html=True)
+
+if {"industry","marketplace_revenue_pct"}.issubset(flt.columns):
+    d = flt[["industry","marketplace_revenue_pct"]].dropna()
+    if not d.empty:
+        st.markdown("**Marketplace Revenue by Industry** — _Cloud marketplace adoption across sectors_")
+        top_ind = d["industry"].value_counts().head(12).index.tolist()
+        d = d[d["industry"].isin(top_ind)]
+        chart = alt.Chart(d).mark_boxplot(size=40, extent='min-max').encode(
+            x=alt.X("marketplace_revenue_pct:Q", title="Marketplace Revenue (%)", scale=alt.Scale(zero=True)),
+            y=alt.Y("industry:N", sort="-x", title=""),
+            color=alt.Color("industry:N", legend=None, scale=alt.Scale(scheme="category20"))
+        ).properties(height=420)
+        render_chart(chart, "marketplace_by_industry", height=420)
+
+st.divider()
+
+# -------------------- Efficiency Explorer --------------------
+st.markdown('<div class="section-header"><h2>🔬 Interactive Efficiency Explorer</h2></div>', unsafe_allow_html=True)
+st.markdown("_Explore relationships between key metrics with custom axis selection_")
+
+num_choices = [
+    "expected_partner_revenue_pct","marketplace_revenue_pct",
+    "employee_count_est","partner_team_size_est","total_partners_est",
+    "active_partners_est","partners_active_ratio","time_to_first_revenue_years",
+    "expected_partner_revenue_per_partner"
+]
+
+with st.expander("⚙️ Configure Chart Parameters"):
+    col_x, col_y, col_color, col_size = st.columns(4)
+    with col_x:
+        x_sel = st.selectbox("X axis", [c for c in num_choices if c in flt.columns],
+                             index=[c for c in num_choices if c in flt.columns].index("partner_team_size_est") if "partner_team_size_est" in flt.columns else 0)
+    with col_y:
+        y_sel = st.selectbox("Y axis", [c for c in num_choices if c in flt.columns],
+                             index=[c for c in num_choices if c in flt.columns].index("expected_partner_revenue_pct") if "expected_partner_revenue_pct" in flt.columns else 0)
+    with col_color:
+        color_by = [c for c in ["program_maturity","revenue_band","industry","region"] if c in flt.columns]
+        color_sel = st.selectbox("Color by", color_by, index=0 if color_by else None)
+    with col_size:
+        size_opts = [None] + [s for s in ["partner_team_size_est","total_partners_est","active_partners_est"] if s in flt.columns]
+        size_sel = st.selectbox("Bubble size", size_opts)
+
+needed = ["company_name","revenue_band","program_maturity","industry","region"]
+for n in needed:
+    if n not in flt.columns: flt[n] = np.nan
+cols = ["company_name","revenue_band","program_maturity","industry","region", x_sel, y_sel] + ([size_sel] if size_sel else [])
+d = flt[cols].dropna()
+if not d.empty:
+    enc = {
+        "x": alt.X(f"{x_sel}:Q", title=x_sel.replace("_"," ").title(), scale=alt.Scale(zero=False)),
+        "y": alt.Y(f"{y_sel}:Q", title=y_sel.replace("_"," ").title(), scale=alt.Scale(zero=False)),
+        "color": alt.Color(f"{color_sel}:N", title=color_sel.replace("_"," ").title(), scale=alt.Scale(scheme="category20")) if color_sel else alt.value("#667eea"),
+        "tooltip": ["company_name","revenue_band","program_maturity","industry","region", 
+                   alt.Tooltip(f"{x_sel}:Q", format=".2f"),
+                   alt.Tooltip(f"{y_sel}:Q", format=".2f")],
+    }
+    if size_sel:
+        enc["size"] = alt.Size(f"{size_sel}:Q", title=size_sel.replace("_"," ").title(), scale=alt.Scale(range=[50, 500]))
+    
+    chart = alt.Chart(d).mark_circle(opacity=0.7, stroke='white', strokeWidth=0.5).encode(**enc).properties(
+        title=f"{y_sel.replace('_',' ').title()} vs {x_sel.replace('_',' ').title()}",
+        height=450
+    ).interactive()
+    render_chart(chart, "efficiency_explorer", height=450)
+
+st.divider()
+
+# -------------------- A/B Cohort Comparison --------------------
+st.markdown('<div class="section-header"><h2>⚖️ A/B Cohort Comparison</h2></div>', unsafe_allow_html=True)
+st.markdown("_Compare key metrics between two custom cohorts_")
+
+def pick(label, values, key=None): 
+    return st.multiselect(label, sorted([x for x in values if pd.notna(x)]), key=key)
+
+def subset(data, rev=None, mat=None, ind=None, reg=None):
+    s = data.copy()
+    if rev and "revenue_band" in s: s = s[s["revenue_band"].isin(rev)]
+    if mat and "program_maturity" in s: s = s[s["program_maturity"].isin(mat)]
+    if ind and "industry" in s: s = s[s["industry"].isin(ind)]
+    if reg and "region" in s: s = s[s["region"].isin(reg)]
+    return s
+
+colA, colB = st.columns(2)
+with colA:
+    st.markdown('<div class="cohort-card"><h4 style="color: #667eea; margin-top: 0;">👥 Cohort A</h4>', unsafe_allow_html=True)
+    revA = pick("Revenue Band", df["revenue_band"].unique()) if "revenue_band" in df else []
+    matA = pick("Maturity", df["program_maturity"].unique()) if "program_maturity" in df else []
+    indA = pick("Industry", df["industry"].unique()) if "industry" in df else []
+    regA = pick("Region", df["region"].unique()) if "region" in df else []
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with colB:
+    st.markdown('<div class="cohort-card"><h4 style="color: #764ba2; margin-top: 0;">👥 Cohort B</h4>', unsafe_allow_html=True)
+    revB = pick("Revenue Band", df["revenue_band"].unique(), key="revB") if "revenue_band" in df else []
+    matB = pick("Maturity", df["program_maturity"].unique(), key="matB") if "program_maturity" in df else []
+    indB = pick("Industry", df["industry"].unique(), key="indB") if "industry" in df else []
+    regB = pick("Region", df["region"].unique(), key="regB") if "region" in df else []
+    st.markdown('</div>', unsafe_allow_html=True)
+
+A = subset(flt, revA, matA, indA, regA)
+B = subset(flt, revB, matB, indB, regB)
+
+metrics = {
+    "Expected Partner Revenue (%)": "expected_partner_revenue_pct",
+    "Marketplace Revenue (%)": "marketplace_revenue_pct",
+    "Activation Ratio": "partners_active_ratio",
+    "Time to First Revenue (yrs)": "time_to_first_revenue_years",
+    "Partner Team Size": "partner_team_size_est",
+    "Total Partners": "total_partners_est",
+    "Active Partners": "active_partners_est",
+}
+
+def coh_median(s, col):
+    if col not in s.columns: return np.nan
+    x = pd.to_numeric(s[col], errors="coerce").dropna()
+    return float(np.median(x)) if not x.empty else np.nan
+
+rows = []
+for label, col in metrics.items():
+    a = coh_median(A, col); b = coh_median(B, col)
+    diff = (b - a) if (pd.notna(a) and pd.notna(b)) else np.nan
+    pct_change = ((b - a) / a * 100) if (pd.notna(a) and pd.notna(b) and a != 0) else np.nan
+    rows.append([label, a, b, diff, pct_change])
+
+cmp_df = pd.DataFrame(rows, columns=["Metric", "Cohort A (median)", "Cohort B (median)", "Δ (B - A)", "% Change"])
+
+# Style the comparison table
+st.markdown("**Comparison Results**")
+st.dataframe(
+    cmp_df.style.format({
+        "Cohort A (median)": "{:.2f}",
+        "Cohort B (median)": "{:.2f}",
+        "Δ (B - A)": "{:.2f}",
+        "% Change": "{:.1f}%"
+    }).background_gradient(subset=["Δ (B - A)"], cmap="RdYlGn", vmin=-50, vmax=50),
+    use_container_width=True
+)
+
+st.markdown(f"_Cohort A: {len(A)} responses | Cohort B: {len(B)} responses_")
+
+st.divider()
+
+# -------------------- Data Export --------------------
+st.markdown('<div class="section-header"><h2>📥 Data Export</h2></div>', unsafe_allow_html=True)
+
+col1, col2 = st.columns(2)
+with col1:
+    with st.expander("📊 View Filtered Data Table"):
+        st.dataframe(flt, use_container_width=True)
+
+with col2:
+    st.markdown("**Download Options**")
+    st.download_button(
+        "📥 Download Filtered Data (CSV)",
+        flt.to_csv(index=False).encode("utf-8"),
+        file_name="sopl_filtered.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
+    
+    try:
+        import io
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            flt.to_excel(writer, index=False, sheet_name='Filtered Data')
+        buffer.seek(0)
+        st.download_button(
+            "📥 Download Filtered Data (Excel)",
+            buffer,
+            file_name="sopl_filtered.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+    except:
+        pass
+
+st.markdown("---")
+st.markdown("""
+<div style="text-align: center; color: #64748b; padding: 2rem 0;">
+    <p style="margin: 0; font-size: 0.9rem;">SOPL 2024 Partnership Insights Dashboard</p>
+    <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;">Built with Streamlit & Altair</p>
+</div>
+""", unsafe_allow_html=True)
