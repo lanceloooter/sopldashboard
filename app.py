@@ -22,7 +22,8 @@ st.markdown("""
 <style>
     /* Main styles */
     .main {
-        background-color: #f8fafc;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: white;
     }
     
     /* Header styles */
@@ -37,24 +38,25 @@ st.markdown("""
     
     .sub-header {
         font-size: 1.2rem;
-        color: #6B7280;
+        color: #94a3b8;
         margin-bottom: 2rem;
         font-weight: 400;
     }
     
     /* Card styles */
     .metric-card {
-        background: white;
+        background: rgba(30, 41, 59, 0.7);
         border-radius: 12px;
         padding: 1.5rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        border: 1px solid #e5e7eb;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
         transition: transform 0.2s ease;
     }
     
     .metric-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.4);
     }
     
     .metric-value {
@@ -68,7 +70,7 @@ st.markdown("""
     
     .metric-label {
         font-size: 0.85rem;
-        color: #6B7280;
+        color: #94a3b8;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -78,7 +80,7 @@ st.markdown("""
     .section-header {
         font-size: 1.6rem;
         font-weight: 700;
-        color: #1F2937;
+        color: #f1f5f9;
         margin: 2rem 0 1rem 0;
         padding-bottom: 0.5rem;
         border-bottom: 2px solid #667eea;
@@ -86,12 +88,13 @@ st.markdown("""
     
     /* Chart containers */
     .chart-container {
-        background: white;
+        background: rgba(30, 41, 59, 0.7);
         border-radius: 12px;
         padding: 1.5rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         margin-bottom: 1.5rem;
-        border: 1px solid #e5e7eb;
+        border: 1px solid rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
     }
     
     /* Button styling */
@@ -107,18 +110,38 @@ st.markdown("""
     /* Tab styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 1rem;
+        background: transparent;
     }
     
     .stTabs [data-baseweb="tab"] {
         height: 45px;
-        background-color: #F3F4F6;
+        background-color: rgba(30, 41, 59, 0.7);
         border-radius: 8px 8px 0 0;
         padding: 0.5rem 1.5rem;
         font-weight: 600;
+        color: #94a3b8;
+        border: 1px solid rgba(255,255,255,0.1);
     }
     
     .stTabs [aria-selected="true"] {
-        background-color: #667eea !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none;
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg, .css-1lcbmhc {
+        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+    }
+    
+    /* Metric styling */
+    [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
+        color: white !important;
+    }
+    
+    /* Dataframe styling */
+    .dataframe {
+        background: rgba(30, 41, 59, 0.7) !important;
         color: white !important;
     }
 </style>
@@ -127,26 +150,30 @@ st.markdown("""
 # ==================== COLOR SCHEME ====================
 HOUSE_COLORS = ["#667eea", "#764ba2", "#f093fb", "#f5576c", "#4facfe", "#00f2fe", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"]
 
-def enhanced_theme():
+def dark_theme():
     return {
         "config": {
             "view": {"stroke": "transparent"},
-            "background": "white",
+            "background": "rgba(30, 41, 59, 0)",
             "range": {"category": HOUSE_COLORS},
             "axis": {
-                "labelColor": "#6B7280",
-                "titleColor": "#1F2937",
+                "labelColor": "#94a3b8",
+                "titleColor": "#f1f5f9",
                 "titleFontWeight": 600,
-                "gridColor": "#E5E7EB",
+                "gridColor": "#334155",
                 "gridWidth": 0.5,
+                "domainColor": "#475569",
+                "tickColor": "#475569"
             },
             "legend": {
-                "labelColor": "#6B7280",
-                "titleColor": "#1F2937",
-                "titleFontWeight": 600
+                "labelColor": "#94a3b8",
+                "titleColor": "#f1f5f9",
+                "titleFontWeight": 600,
+                "background": "rgba(30, 41, 59, 0.8)",
+                "strokeColor": "#475569"
             },
             "title": {
-                "color": "#1F2937",
+                "color": "#f1f5f9",
                 "fontSize": 16,
                 "fontWeight": 700,
                 "anchor": "start"
@@ -154,8 +181,8 @@ def enhanced_theme():
         }
     }
 
-alt.themes.register("enhanced", enhanced_theme)
-alt.themes.enable("enhanced")
+alt.themes.register("dark", dark_theme)
+alt.themes.enable("dark")
 
 # ==================== DATA PROCESSING FUNCTIONS ====================
 LOCAL_FALLBACK = "data/SOPL 1002 Results - Raw.csv"
@@ -361,7 +388,7 @@ def create_section_header(title, description=None, icon="📊"):
     </div>
     """, unsafe_allow_html=True)
     if description:
-        st.markdown(f'<p style="color: #6B7280; margin-bottom: 1.5rem;">{description}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p style="color: #94a3b8; margin-bottom: 1.5rem;">{description}</p>', unsafe_allow_html=True)
 
 def render_chart(chart: alt.Chart, name: str, height=300):
     """Render chart with download button"""
@@ -712,7 +739,7 @@ def main():
     # Footer
     st.markdown("---")
     st.markdown(
-        "<div style='text-align: center; color: #6B7280; font-size: 0.9rem; padding: 2rem;'>"
+        "<div style='text-align: center; color: #94a3b8; font-size: 0.9rem; padding: 2rem;'>"
         "SOPL 2024 Insights Platform • Built with Streamlit • Professional Analytics Dashboard"
         "</div>", 
         unsafe_allow_html=True
