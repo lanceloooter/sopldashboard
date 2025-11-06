@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import altair as alt
 import streamlit as st
+import io
 
 # ───────────────────────── Page & Theme ─────────────────────────
 st.set_page_config(page_title="SOPL 2024 – Interactive", page_icon="📊", layout="wide")
@@ -134,20 +135,77 @@ TTF_REVENUE_MAP = {  # years
 # ───────────────────────────── Load & standardize ─────────────────────────────
 @st.cache_data(show_spinner=False)
 def load_raw(uploaded):
+    """
+    Robust reader for SOPL uploads:
+    - Tries Excel first
+    - For CSV: tries multiple encodings & delimiters
+    - Uses a forgiving parser and skips bad lines
+    - Falls back to LOCAL_FALLBACK if present
+    """
+    # 1) Uploaded file?
     if uploaded is not None:
-        df = pd.read_csv(uploaded)
-    elif os.path.exists(LOCAL_FALLBACK):
-        df = pd.read_csv(LOCAL_FALLBACK)
-    else:
-        return pd.DataFrame()
-    return df
+        name = (uploaded.name or "").lower()
 
-def standardize(df_raw: pd.DataFrame) -> pd.DataFrame:
-    # Validate required raw columns
-    missing = [v for v in RAW.values() if v not in df_raw.columns]
-    if missing:
-        st.error("Missing expected columns in CSV:\n- " + "\n- ".join(missing))
-        return pd.DataFrame()
+        # Excel first
+        if name.endswith((".xlsx", ".xls")):
+            try:
+                return pd.read_excel(uploaded)
+            except Exception as e:
+                st.warning(f"Excel read failed: {e}")
+
+        # CSV bytes
+        try:
+            data = uploaded.getvalue()  # bytes from Streamlit UploadedFile
+        except Exception:
+            # Some environments need .read()
+            uploaded.seek(0)
+            data = uploaded.read()
+
+        encodings = ["utf-8-sig", "utf-8", "cp1252", "latin-1"]
+        delimiters = [None, ",", "\t", ";", "|"]  # None lets pandas sniff
+        for enc in encodings:
+            for sep in delimiters:
+                try:
+                    buf = io.BytesIO(data)
+                    df = pd.read_csv(
+                        buf,
+                        encoding=enc,
+                        sep=sep,
+                        engine="python",          # more forgiving
+                        on_bad_lines="skip",      # skip malformed rows
+                        encoding_errors="replace" # avoid hard fail on stray bytes
+                    )
+                    if df.shape[1] >= 2:  # sanity check
+                        return df
+                except Exception:
+                    continue
+
+        st.error("Could not decode the uploaded file with common encodings/delimiters. "
+                 "If this is an Excel export, upload the .xlsx; otherwise re-save as UTF-8 CSV.")
+
+    # 2) Local fallback (repo file) if present
+    if os.path.exists(LOCAL_FALLBACK):
+        # Try same robust strategy for fallback
+        if LOCAL_FALLBACK.lower().endswith((".xlsx", ".xls")):
+            try:
+                return pd.read_excel(LOCAL_FALLBACK)
+            except Exception as e:
+                st.warning(f"Local Excel fallback failed: {e}")
+        try:
+            # try utf-8 first with sniffing
+            return pd.read_csv(LOCAL_FALLBACK, sep=None, engine="python")
+        except Exception:
+            # try latin encodings
+            for enc in ["utf-8-sig", "cp1252", "latin-1"]:
+                try:
+                    return pd.read_csv(LOCAL_FALLBACK, encoding=enc, sep=None, engine="python",
+                                       on_bad_lines="skip", encoding_errors="replace")
+                except Exception:
+                    continue
+            st.error("Local fallback exists but could not be decoded.")
+
+    # 3) give up (caller will st.stop() later)
+    return pd.DataFrame()
 
     d = pd.DataFrame({
         "company_name": df_raw[RAW["company_name"]],
