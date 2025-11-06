@@ -1,13 +1,11 @@
 import os
-import re
-import io
 import numpy as np
 import pandas as pd
 import altair as alt
 import streamlit as st
 
 # ───────────────────────── Page & Theme ─────────────────────────
-st.set_page_config(page_title="SOPL 2024 – Interactive (Raw Columns)", page_icon="📊", layout="wide")
+st.set_page_config(page_title="SOPL 2024 – Interactive", page_icon="📊", layout="wide")
 
 HOUSE_COLORS = ["#2663EB", "#24A19C", "#F29F05", "#C4373D", "#7B61FF", "#2A9D8F", "#D97706"]
 def house_theme():
@@ -25,15 +23,9 @@ alt.themes.enable("house")
 
 LOCAL_FALLBACK = "data/SOPL 1002 Results - Raw.csv"
 
-# ─────────────────────── Helpers: coercions ───────────────────────
-def mid_from_range(label: str, mapping: dict) -> float | None:
-    """Map a categorical range label to an estimated midpoint using mapping; return None if unknown."""
-    if pd.isna(label):
-        return None
-    s = str(label).strip()
-    return mapping.get(s, None)
-
+# ─────────────────────── Helpers: parsing & utilities ───────────────────────
 def to_pct_numeric(x):
+    """Convert '42%' or '42' to float 42.0."""
     if pd.isna(x): return np.nan
     s = str(x).strip().replace("%","")
     try: return float(s)
@@ -53,32 +45,38 @@ def maturity_from_years(x: str) -> str:
     s = str(x)
     if "Less than 1 year" in s: return "Early"
     if "1-2 year" in s or "1–2 year" in s: return "Early"
+    if "2-3 year" in s or "2–3 year" in s: return "Developing"
     if "3-5 year" in s or "3–5 year" in s: return "Developing"
     if "6-10 year" in s or "6–10 year" in s: return "Mature"
     if "More than 10 years" in s: return "Mature"
     return "Unknown"
 
-def years_to_numeric(x: str) -> float | None:
-    if pd.isna(x): return np.nan
-    s = str(x)
-    if "Less than 1 year" in s: return 0.5
-    if "1-2 year" in s or "1–2 year" in s: return 1.5
-    if "2-3 year" in s or "2–3 year" in s: return 2.5
-    if "3-5 year" in s or "3–5 year" in s: return 4.0
-    if "6-10 year" in s or "6–10 year" in s: return 8.0
-    if "More than 10 years" in s: return 12.0
-    return np.nan
+def mid_from_bins(label: str, mapping: dict) -> float | None:
+    """Map a categorical range label to an estimated midpoint using mapping; None if unknown."""
+    if pd.isna(label): return None
+    return mapping.get(str(label).strip(), None)
 
-def render_chart(chart: alt.Chart, filename: str):
+def median_iqr(s, fmt="{:.1f}"):
+    x = pd.to_numeric(s, errors="coerce").dropna()
+    if x.empty: return ("—","—","0")
+    med = np.median(x)
+    q1, q3 = np.percentile(x, [25, 75])
+    return (fmt.format(med), f"[{fmt.format(q1)}–{fmt.format(q3)}]", f"{len(x)}")
+
+def render_chart(chart: alt.Chart, name: str, height=None):
+    if height is not None:
+        chart = chart.properties(height=height)
     st.altair_chart(chart, use_container_width=True)
+    # PNG export
     try:
         import vl_convert as vlc
         png = vlc.vegalite_to_png(chart.to_dict(), scale=2)
-        st.download_button(f"Download {filename}.png", png, file_name=f"{filename}.png", mime="image/png")
+        st.download_button(f"Download {name}.png", png, file_name=f"{name}.png", mime="image/png")
     except Exception:
         pass
 
-# ───────────────────── Load & standardize data ─────────────────────
+# ─────────────────────── Column mapping from raw (Qualtrics-style) ───────────────────────
+# These MUST match your CSV headers exactly (copied from inspection)
 RAW = {
     "company_name": "Company name",
     "region": "Please select the region where your company is headquartered.",
@@ -95,6 +93,7 @@ RAW = {
     "top_challenge": "What's your biggest challenge in scaling your partner program?",
 }
 
+# Midpoint mappings for binned questions (tune if you prefer different midpoints)
 EMPLOYEES_MAP = {
     "Less than 100 employees": 50.0,
     "100 – 500 employees": 300.0,
@@ -126,9 +125,13 @@ TTF_REVENUE_MAP = {  # years
     "Less than 1 year": 0.5,
     "1–2 years": 1.5,
     "2–3 years": 2.5,
+    "3–5 years": 4.0,
+    "6–10 years": 8.0,
+    "More than 10 years": 12.0,
     "I don't have this data": np.nan,
 }
 
+# ───────────────────────────── Load & standardize ─────────────────────────────
 @st.cache_data(show_spinner=False)
 def load_raw(uploaded):
     if uploaded is not None:
@@ -140,11 +143,11 @@ def load_raw(uploaded):
     return df
 
 def standardize(df_raw: pd.DataFrame) -> pd.DataFrame:
-    # ensure columns exist
-    for need in RAW.values():
-        if need not in df_raw.columns:
-            st.error(f"Missing column in CSV: {need}")
-            return pd.DataFrame()
+    # Validate required raw columns
+    missing = [v for v in RAW.values() if v not in df_raw.columns]
+    if missing:
+        st.error("Missing expected columns in CSV:\n- " + "\n- ".join(missing))
+        return pd.DataFrame()
 
     d = pd.DataFrame({
         "company_name": df_raw[RAW["company_name"]],
@@ -162,28 +165,30 @@ def standardize(df_raw: pd.DataFrame) -> pd.DataFrame:
         "top_challenge": df_raw[RAW["top_challenge"]],
     })
 
-    # numeric estimates (for charts/correlations)
-    d["employee_count_est"] = d["employee_count_bin"].apply(lambda x: mid_from_range(x, EMPLOYEES_MAP))
-    d["partner_team_size_est"] = d["partner_team_size_bin"].apply(lambda x: mid_from_range(x, TEAM_SIZE_MAP))
-    d["total_partners_est"] = d["total_partners_bin"].apply(lambda x: mid_from_range(x, TOTAL_PARTNERS_MAP))
-    d["active_partners_est"] = d["active_partners_bin"].apply(lambda x: mid_from_range(x, ACTIVE_PARTNERS_MAP))
-    d["time_to_first_revenue_years"] = d["time_to_first_revenue_bin"].apply(lambda x: mid_from_range(x, TTF_REVENUE_MAP))
+    # Numeric estimates for binned questions
+    d["employee_count_est"] = d["employee_count_bin"].apply(lambda x: mid_from_bins(x, EMPLOYEES_MAP))
+    d["partner_team_size_est"] = d["partner_team_size_bin"].apply(lambda x: mid_from_bins(x, TEAM_SIZE_MAP))
+    d["total_partners_est"] = d["total_partners_bin"].apply(lambda x: mid_from_bins(x, TOTAL_PARTNERS_MAP))
+    d["active_partners_est"] = d["active_partners_bin"].apply(lambda x: mid_from_bins(x, ACTIVE_PARTNERS_MAP))
+    d["time_to_first_revenue_years"] = d["time_to_first_revenue_bin"].apply(lambda x: mid_from_bins(x, TTF_REVENUE_MAP))
 
-    # derived maturity
+    # Derived maturity from program tenure
     d["program_maturity"] = df_raw[RAW["program_years_bin"]].apply(maturity_from_years)
 
-    # useful efficiency metrics
+    # Efficiency/derived
     d["partners_active_ratio"] = d["active_partners_est"] / d["total_partners_est"]
     d["expected_partner_revenue_per_partner"] = d["expected_partner_revenue_pct"] / d["partner_team_size_est"]
+
     return d
 
-# ───────────────────────────── Load data ─────────────────────────────
+# ───────────────────────────── Load UI ─────────────────────────────
 with st.sidebar:
     st.header("Data")
-    up = st.file_uploader("Upload SOPL raw CSV", type=["csv"])
-raw = load_raw(up)
+    uploaded = st.file_uploader("Upload SOPL raw CSV", type=["csv"])
+raw = load_raw(uploaded)
 if raw.empty:
     st.stop()
+
 df = standardize(raw)
 if df.empty:
     st.stop()
@@ -191,20 +196,20 @@ if df.empty:
 # ───────────────────────────── Filters ─────────────────────────────
 with st.sidebar:
     st.header("Filters")
-    # fixed orders where relevant
-    revenue_options = df["revenue_band"].dropna().unique().tolist()
-    revenue_sel = st.multiselect("Revenue Band", options=revenue_options, default=revenue_options)
 
-    industry_options = sorted(df["industry"].dropna().astype(str).unique().tolist())
-    industry_sel = st.multiselect("Industry", options=industry_options, default=industry_options)
+    rev_opts = df["revenue_band"].dropna().unique().tolist()
+    rev_sel = st.multiselect("Revenue Band", options=rev_opts, default=rev_opts)
 
-    region_options = ["APAC","EMEA","LATAM","NA"]
-    region_in_data = [r for r in region_options if r in df["region"].dropna().unique().tolist()]
-    region_extra = [r for r in df["region"].dropna().unique().tolist() if r not in region_options]
-    region_sel = st.multiselect("Region", options=region_in_data + region_extra, default=region_in_data + region_extra)
+    ind_opts = sorted(df["industry"].dropna().astype(str).unique().tolist())
+    ind_sel = st.multiselect("Industry", options=ind_opts, default=ind_opts)
 
-    maturity_options = ["Early","Developing","Mature","Unknown"]
-    mat_in = [m for m in maturity_options if m in df["program_maturity"].dropna().unique().tolist()]
+    region_order = ["APAC", "EMEA", "LATAM", "NA"]
+    reg_in = [r for r in region_order if r in df["region"].dropna().unique().tolist()]
+    reg_extra = [r for r in sorted(df["region"].dropna().unique().tolist()) if r not in region_order]
+    reg_sel = st.multiselect("Region", options=reg_in + reg_extra, default=reg_in + reg_extra)
+
+    mat_order = ["Early", "Developing", "Mature", "Unknown"]
+    mat_in = [m for m in mat_order if m in df["program_maturity"].dropna().unique().tolist()]
     mat_sel = st.multiselect("Program Maturity", options=mat_in, default=mat_in)
 
     emp_bins = df["employee_count_bin"].dropna().unique().tolist()
@@ -214,101 +219,179 @@ with st.sidebar:
     team_sel = st.multiselect("Partner Team Size (bin)", options=team_bins, default=team_bins)
 
 flt = df.copy()
-flt = flt[flt["revenue_band"].isin(revenue_sel)]
-flt = flt[flt["industry"].isin(industry_sel)]
-flt = flt[flt["region"].isin(region_sel)]
+flt = flt[flt["revenue_band"].isin(rev_sel)]
+flt = flt[flt["industry"].isin(ind_sel)]
+flt = flt[flt["region"].isin(reg_sel)]
 flt = flt[flt["program_maturity"].isin(mat_sel)]
 flt = flt[flt["employee_count_bin"].isin(emp_sel)]
 flt = flt[flt["partner_team_size_bin"].isin(team_sel)]
 
 # ───────────────────────────── KPIs ─────────────────────────────
-st.title("SOPL 2024 – Interactive Dashboard (Raw-Aligned)")
+st.title("SOPL 2024 – Interactive Dashboard (Aligned to Survey Questions)")
 
-def safe_mean(s, fmt="{:.1f}"):
-    s = pd.to_numeric(s, errors="coerce")
-    return "—" if s.dropna().empty else fmt.format(s.mean())
+k1, k2, k3, k4 = st.columns(4)
+m, iqr, n = median_iqr(flt["expected_partner_revenue_pct"])
+k1.metric("Expected partner revenue (%)", m, f"{iqr} | N={n}")
 
-k1,k2,k3,k4 = st.columns(4)
-k1.metric("Expected partner revenue (%)", safe_mean(flt["expected_partner_revenue_pct"]))
-k2.metric("Marketplace revenue (%)", safe_mean(flt["marketplace_revenue_pct"]))
-k3.metric("Employees (est)", safe_mean(flt["employee_count_est"], "{:.0f}"))
-k4.metric("Partner team size (est)", safe_mean(flt["partner_team_size_est"], "{:.0f}"))
+m, iqr, n = median_iqr(flt["marketplace_revenue_pct"])
+k2.metric("Marketplace revenue (%)", m, f"{iqr} | N={n}")
 
-k5,k6,k7,k8 = st.columns(4)
-k5.metric("Total partners (est)", safe_mean(flt["total_partners_est"], "{:.0f}"))
-k6.metric("Active partners (est)", safe_mean(flt["active_partners_est"], "{:.0f}"))
-k7.metric("Active / Total ratio", safe_mean(flt["partners_active_ratio"], "{:.2f}"))
-k8.metric("Time to first revenue (yrs)", safe_mean(flt["time_to_first_revenue_years"], "{:.1f}"))
+m, iqr, n = median_iqr(flt["partner_team_size_est"], "{:.0f}")
+k3.metric("Partner team size (est)", m, f"{iqr} | N={n}")
 
-g1,g2 = st.columns(2)
+m, iqr, n = median_iqr(flt["time_to_first_revenue_years"])
+k4.metric("Time to first revenue (yrs)", m, f"{iqr} | N={n}")
+
+k5, k6, k7, k8 = st.columns(4)
+m, iqr, n = median_iqr(flt["total_partners_est"], "{:.0f}")
+k5.metric("Total partners (est)", m, f"{iqr} | N={n}")
+
+m, iqr, n = median_iqr(flt["active_partners_est"], "{:.0f}")
+k6.metric("Active partners (est)", m, f"{iqr} | N={n}")
+
+m, iqr, n = median_iqr(flt["partners_active_ratio"], "{:.2f}")
+k7.metric("Activation ratio (active/total)", m, f"{iqr} | N={n}")
+
+if {"partner_team_size_est","employee_count_est"}.issubset(flt.columns):
+    tpe = (flt["partner_team_size_est"] / (flt["employee_count_est"] / 1000)).replace([np.inf, -np.inf], np.nan)
+    m, iqr, n = median_iqr(tpe, "{:.2f}")
+    k8.metric("Team per 1k employees", m, f"{iqr} | N={n}")
+else:
+    k8.metric("Team per 1k employees", "—", "—")
+
+g1, g2 = st.columns(2)
 g1.metric("Responses (after filters)", f"{len(flt):,}")
 g2.metric("Total responses", f"{len(df):,}")
 
 st.divider()
 
-# ─────────────────────────── Distributions ───────────────────────────
-left, right = st.columns(2)
+# ───────────────────────── Question 1: Expected partner revenue ─────────────────────────
+st.subheader("Expected Partner Revenue — Distributions & Cohorts")
 
-with left:
-    tmp = flt["industry"].value_counts(normalize=True).mul(100).rename("Percent").reset_index()
-    tmp.columns = ["industry","Percent"]
-    chart = alt.Chart(tmp).mark_bar().encode(
-        x=alt.X("Percent:Q", title="Percent of companies"),
-        y=alt.Y("industry:N", sort="-x"),
-        tooltip=["industry", alt.Tooltip("Percent:Q", format=".1f")]
-    ).properties(height=280, title="Industry Mix")
-    render_chart(chart, "industry_mix")
+# Violin-like density by maturity
+for cohort_col, title in [("program_maturity", "by Program Maturity"), ("revenue_band", "by Revenue Band")]:
+    d = flt[[cohort_col, "expected_partner_revenue_pct"]].dropna()
+    if d.empty:
+        st.info(f"No data for {title}.")
+        continue
+    base = alt.Chart(d).transform_density(
+        "expected_partner_revenue_pct", groupby=[cohort_col], as_=["value","density"]
+    )
+    chart = base.mark_area(opacity=0.45).encode(
+        x=alt.X("value:Q", title="Expected partner revenue (%)"),
+        y=alt.Y("density:Q", title="Density"),
+        color=alt.Color(f"{cohort_col}:N", title=cohort_col.replace("_"," ").title())
+    ).properties(title=f"Distribution {title}", height=260)
+    render_chart(chart, f"expected_rev_{cohort_col}_density")
 
-with right:
-    tmp = flt["revenue_band"].value_counts(normalize=True).mul(100).rename("Percent").reset_index()
-    tmp.columns = ["revenue_band","Percent"]
-    chart = alt.Chart(tmp).mark_bar().encode(
-        x=alt.X("Percent:Q", title="Percent of companies"),
-        y=alt.Y("revenue_band:N", sort="-x"),
-        tooltip=["revenue_band", alt.Tooltip("Percent:Q", format=".1f")]
-    ).properties(height=280, title="Revenue Band Mix")
-    render_chart(chart, "revenue_mix")
-
-st.divider()
-
-# ───────────────────────── Cohort box plots ─────────────────────────
-b1, b2 = st.columns(2)
-with b1:
-    d = flt[["expected_partner_revenue_pct","revenue_band"]].dropna()
-    if not d.empty:
-        chart = alt.Chart(d).mark_boxplot().encode(
-            x=alt.X("revenue_band:N", title="Revenue Band"),
-            y=alt.Y("expected_partner_revenue_pct:Q", title="Expected partner revenue (%)"),
-            color=alt.Color("revenue_band:N", legend=None),
-            tooltip=["revenue_band","expected_partner_revenue_pct"]
-        ).properties(height=320, title="Expected Partner Revenue % by Revenue Band")
-        render_chart(chart, "exp_partner_rev_by_revenue")
-    else:
-        st.info("No data for Expected partner revenue by Revenue Band.")
-
-with b2:
-    d = flt[["expected_partner_revenue_pct","program_maturity"]].dropna()
-    if not d.empty:
-        chart = alt.Chart(d).mark_boxplot().encode(
-            x=alt.X("program_maturity:N", title="Program Maturity"),
-            y=alt.Y("expected_partner_revenue_pct:Q", title="Expected partner revenue (%)"),
-            color=alt.Color("program_maturity:N", legend=None),
-            tooltip=["program_maturity","expected_partner_revenue_pct"]
-        ).properties(height=320, title="Expected Partner Revenue % by Maturity")
-        render_chart(chart, "exp_partner_rev_by_maturity")
-    else:
-        st.info("No data for Expected partner revenue by Maturity.")
+# Box by region
+d = flt[["region","expected_partner_revenue_pct"]].dropna()
+if not d.empty:
+    chart = alt.Chart(d).mark_boxplot().encode(
+        x=alt.X("region:N", title="Region"),
+        y=alt.Y("expected_partner_revenue_pct:Q", title="Expected partner revenue (%)"),
+        color=alt.Color("region:N", legend=None)
+    ).properties(title="Expected Partner Revenue by Region", height=260)
+    render_chart(chart, "expected_rev_by_region")
 
 st.divider()
 
-# ───────────────────── Relationship Explorer ─────────────────────
-st.subheader("Relationship Explorer")
-num_choices = ["expected_partner_revenue_pct","marketplace_revenue_pct",
-               "employee_count_est","partner_team_size_est","total_partners_est",
-               "active_partners_est","partners_active_ratio","time_to_first_revenue_years",
-               "expected_partner_revenue_per_partner"]
+# ───────────────────────── Question 2–3: Partners & activation ─────────────────────────
+st.subheader("Partner Counts & Activation")
+
+# Activation by revenue band (median)
+d = flt[["revenue_band","partners_active_ratio"]].dropna()
+if not d.empty:
+    agg = d.groupby("revenue_band")["partners_active_ratio"].median().reset_index()
+    bars = alt.Chart(agg).mark_bar().encode(
+        x=alt.X("revenue_band:N", title="Revenue Band"),
+        y=alt.Y("partners_active_ratio:Q", title="Median active/total"),
+        tooltip=["revenue_band", alt.Tooltip("partners_active_ratio:Q", format=".2f")]
+    ).properties(title="Activation Ratio by Revenue Band (median)", height=280)
+    render_chart(bars, "activation_by_revenue_band")
+
+# Activation by industry (Top 12)
+d2 = flt[["industry","partners_active_ratio"]].dropna()
+if not d2.empty:
+    topN = d2["industry"].value_counts().head(12).index.tolist()
+    d2 = d2[d2["industry"].isin(topN)]
+    agg2 = d2.groupby("industry")["partners_active_ratio"].median().sort_values(ascending=False).reset_index()
+    bars2 = alt.Chart(agg2).mark_bar().encode(
+        x=alt.X("partners_active_ratio:Q", title="Median active/total"),
+        y=alt.Y("industry:N", sort="-x", title=""),
+        tooltip=["industry", alt.Tooltip("partners_active_ratio:Q", format=".2f")]
+    ).properties(title="Activation Ratio by Industry (Top 12)", height=320)
+    render_chart(bars2, "activation_by_industry")
+
+st.divider()
+
+# ───────────────────────── Question 4: Time to first revenue ─────────────────────────
+st.subheader("Time to First Partner Revenue")
+
+d = flt[["program_maturity","industry","time_to_first_revenue_years"]].dropna()
+if not d.empty:
+    top_ind = d["industry"].value_counts().head(10).index.tolist()
+    d = d[d["industry"].isin(top_ind)]
+    heat = alt.Chart(d).mark_rect().encode(
+        x=alt.X("program_maturity:N", title="Program Maturity"),
+        y=alt.Y("industry:N", title="Industry"),
+        color=alt.Color("mean(time_to_first_revenue_years):Q", title="Mean years"),
+        tooltip=[
+            "industry","program_maturity",
+            alt.Tooltip("mean(time_to_first_revenue_years):Q", format=".2f", title="Mean years"),
+            alt.Tooltip("count():Q", title="N")
+        ],
+    ).properties(title="Ramp Speed (Mean Years) by Maturity × Industry", height=360)
+    render_chart(heat, "ttf_heatmap")
+
+st.divider()
+
+# ───────────────────────── Question 5: Biggest challenge ─────────────────────────
+st.subheader("Biggest Challenge × Program Maturity")
+
+d = flt[["top_challenge","program_maturity"]].dropna()
+if not d.empty:
+    norm = (d.groupby(["program_maturity","top_challenge"]).size()
+              .groupby(level=0).apply(lambda s: 100 * s / s.sum()).reset_index(name="pct"))
+    top_chal = norm.groupby("top_challenge")["pct"].sum().sort_values(ascending=False).head(12).index.tolist()
+    norm = norm[norm["top_challenge"].isin(top_chal)]
+    chart = alt.Chart(norm).mark_rect().encode(
+        x=alt.X("program_maturity:N", title="Program Maturity"),
+        y=alt.Y("top_challenge:N", title="Top Challenge", sort="-x"),
+        color=alt.Color("pct:Q", title="Share within maturity (%)"),
+        tooltip=["program_maturity","top_challenge", alt.Tooltip("pct:Q", format=".1f")]
+    ).properties(title="What Blocks Growth? (normalized within maturity)", height=360)
+    render_chart(chart, "challenge_matrix")
+
+st.divider()
+
+# ───────────────────────── Question 6: Marketplace revenue ─────────────────────────
+st.subheader("Cloud Marketplace Revenue by Industry")
+
+d = flt[["industry","marketplace_revenue_pct"]].dropna()
+if not d.empty:
+    top_ind = d["industry"].value_counts().head(10).index.tolist()
+    d = d[d["industry"].isin(top_ind)]
+    chart = alt.Chart(d).mark_boxplot().encode(
+        x=alt.X("marketplace_revenue_pct:Q", title="Marketplace revenue (%)"),
+        y=alt.Y("industry:N", sort="-x", title="Industry"),
+        color=alt.Color("industry:N", legend=None)
+    ).properties(title="Marketplace Revenue by Industry (Top 10)", height=340)
+    render_chart(chart, "marketplace_by_industry")
+
+st.divider()
+
+# ───────────────────────── Relationship Explorer (efficiency) ─────────────────────────
+st.subheader("Efficiency Explorer")
+
+num_choices = [
+    "expected_partner_revenue_pct","marketplace_revenue_pct",
+    "employee_count_est","partner_team_size_est","total_partners_est",
+    "active_partners_est","partners_active_ratio","time_to_first_revenue_years",
+    "expected_partner_revenue_per_partner"
+]
 with st.expander("Pick axes / color / bubble size"):
-    x_sel = st.selectbox("X axis", num_choices, index=num_choices.index("employee_count_est"))
+    x_sel = st.selectbox("X axis", num_choices, index=num_choices.index("partner_team_size_est"))
     y_sel = st.selectbox("Y axis", num_choices, index=num_choices.index("expected_partner_revenue_pct"))
     color_sel = st.selectbox("Color by", ["program_maturity","revenue_band","industry","region"])
     size_sel = st.selectbox("Bubble size (optional)", [None,"partner_team_size_est","total_partners_est","active_partners_est"])
@@ -323,61 +406,74 @@ if not d.empty:
     }
     if size_sel:
         enc["size"] = alt.Size(f"{size_sel}:Q", title=size_sel.replace("_"," ").title())
-    chart = alt.Chart(d).mark_circle(opacity=0.85).encode(**enc).properties(height=380,
-        title=f"{y_sel.replace('_',' ').title()} vs {x_sel.replace('_',' ').title()}")
-    render_chart(chart, "relationship_explorer")
-else:
-    st.info("No data for the selected axes after filters.")
+    chart = alt.Chart(d).mark_circle(opacity=0.85).encode(**enc).properties(
+        title=f"{y_sel.replace('_',' ').title()} vs {x_sel.replace('_',' ').title()}",
+        height=380
+    )
+    render_chart(chart, "efficiency_explorer")
 
 st.divider()
 
-# ───────────────────── Cohort summary table ─────────────────────
-st.markdown("**Cohort Means (by Revenue Band)**")
-metrics = ["expected_partner_revenue_pct","marketplace_revenue_pct","employee_count_est",
-           "partner_team_size_est","total_partners_est","active_partners_est","partners_active_ratio",
-           "time_to_first_revenue_years","expected_partner_revenue_per_partner"]
-cohort = flt.groupby("revenue_band")[metrics].mean(numeric_only=True).reset_index()
-st.dataframe(cohort, use_container_width=True)
+# ───────────────────────── A/B Cohort Comparison ─────────────────────────
+st.subheader("A/B Cohort Comparison")
+
+def pick(label, values, key=None):
+    return st.multiselect(label, sorted([x for x in values if pd.notna(x)]), key=key)
+
+colA, colB = st.columns(2)
+with colA:
+    st.markdown("**Cohort A**")
+    revA = pick("Revenue (A)", df["revenue_band"].unique())
+    matA = pick("Maturity (A)", df["program_maturity"].unique())
+    indA = pick("Industry (A)", df["industry"].unique())
+    regA = pick("Region (A)", df["region"].unique())
+with colB:
+    st.markdown("**Cohort B**")
+    revB = pick("Revenue (B)", df["revenue_band"].unique(), key="revB")
+    matB = pick("Maturity (B)", df["program_maturity"].unique(), key="matB")
+    indB = pick("Industry (B)", df["industry"].unique(), key="indB")
+    regB = pick("Region (B)", df["region"].unique(), key="regB")
+
+def subset(data, rev, mat, ind, reg):
+    s = data.copy()
+    if rev: s = s[s["revenue_band"].isin(rev)]
+    if mat: s = s[s["program_maturity"].isin(mat)]
+    if ind: s = s[s["industry"].isin(ind)]
+    if reg: s = s[s["region"].isin(reg)]
+    return s
+
+A = subset(flt, revA, matA, indA, regA)
+B = subset(flt, revB, matB, indB, regB)
+
+metrics = {
+    "Expected partner revenue (%)": "expected_partner_revenue_pct",
+    "Marketplace revenue (%)": "marketplace_revenue_pct",
+    "Activation ratio (active/total)": "partners_active_ratio",
+    "Time to first revenue (yrs)": "time_to_first_revenue_years",
+    "Partner team size (est)": "partner_team_size_est",
+    "Total partners (est)": "total_partners_est",
+    "Active partners (est)": "active_partners_est",
+}
+
+def coh_median(s, col):
+    x = pd.to_numeric(s[col], errors="coerce").dropna()
+    return float(np.median(x)) if not x.empty else np.nan
+
+rows = []
+for label, col in metrics.items():
+    a = coh_median(A, col)
+    b = coh_median(B, col)
+    diff = (b - a) if (pd.notna(a) and pd.notna(b)) else np.nan
+    rows.append([label, a, b, diff])
+
+cmp_df = pd.DataFrame(rows, columns=["Metric", "Cohort A (median)", "Cohort B (median)", "B - A (Δ)"])
+st.dataframe(cmp_df, use_container_width=True)
 
 st.divider()
 
-# ───────────────────── Correlation heatmap ─────────────────────
-st.subheader("Correlation (Pearson)")
-corr_cols = [c for c in metrics if c in flt.columns]
-if len(corr_cols) >= 2 and not flt[corr_cols].dropna().empty:
-    corr = flt[corr_cols].corr(numeric_only=True).reset_index().melt("index")
-    corr.columns = ["x","y","corr"]
-    chart = alt.Chart(corr).mark_rect().encode(
-        x=alt.X("x:N", title=""),
-        y=alt.Y("y:N", title=""),
-        color=alt.Color("corr:Q", title="r"),
-        tooltip=[alt.Tooltip("x:N"), alt.Tooltip("y:N"), alt.Tooltip("corr:Q", format=".2f")]
-    ).properties(height=360, title="Correlation Heatmap")
-    render_chart(chart, "correlation_heatmap")
-else:
-    st.info("Not enough numeric data for correlation.")
-
-st.divider()
-
-# ───────────────────── Leaderboards + Table ─────────────────────
-st.subheader("Leaderboards")
-c1, c2, c3 = st.columns(3)
-def topk(col, k=10):
-    if col not in flt.columns: return pd.DataFrame()
-    d = flt[["company_name","revenue_band","program_maturity","industry","region", col]].dropna()
-    return d.sort_values(col, ascending=False).head(k)
-
-with c1:
-    st.markdown("**Top 10: Expected partner rev %**")
-    st.dataframe(topk("expected_partner_revenue_pct"), use_container_width=True, height=360)
-with c2:
-    st.markdown("**Top 10: Active / Total partners ratio**")
-    st.dataframe(topk("partners_active_ratio"), use_container_width=True, height=360)
-with c3:
-    st.markdown("**Top 10: Partner team size (est)**")
-    st.dataframe(topk("partner_team_size_est"), use_container_width=True, height=360)
-
+# ───────────────────────── Full Table & Export ─────────────────────────
 with st.expander("Show filtered table"):
     st.dataframe(flt, use_container_width=True)
 
-st.download_button("Download filtered CSV", flt.to_csv(index=False).encode("utf-8"), file_name="sopl_filtered.csv", mime="text/csv")
+st.download_button("Download filtered CSV", flt.to_csv(index=False).encode("utf-8"),
+                   file_name="sopl_filtered.csv", mime="text/csv")
