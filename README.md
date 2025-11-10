@@ -1,4 +1,4 @@
-# SOPL 2024 – Interactive Dashboard (Template)
+# SOPL 2025 – Interactive Dashboard (Template)
 
 Use this as a starting point. It ships with a small sample CSV at `data/sopl_2024_template.csv`.
 Replace the template with your real SOPL CSV, or upload via the sidebar.
