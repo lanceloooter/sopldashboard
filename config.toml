@@ -3,3 +3,10 @@ runOnSave = false
 headless = true
 enableXsrfProtection = true
 enableCORS = true
+
+[theme]
+base = "light"
+primaryColor = "#3b308f"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f9fafb"
+textColor = "#020617"
