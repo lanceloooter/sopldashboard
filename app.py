@@ -152,7 +152,7 @@ alt.themes.register("light_simple", light_theme)
 alt.themes.enable("light_simple")
 
 # ==================== DATA PROCESSING ====================
-LOCAL_FALLBACK = "data/SOPL 1002 Results - Raw.csv"
+LOCAL_FALLBACK = "SOPL 1002 Results - Raw.csv"
 
 def normalize(txt: str) -> str:
     if txt is None: return ""
