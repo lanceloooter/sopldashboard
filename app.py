@@ -72,7 +72,7 @@ html, body, .stApp, .stApp * {
 
 /* MAIN TITLE – Amaranth & bigger */
 .main-header {
-    font-size: 4.5rem;
+    font-size: 2.6rem;
     font-weight: 900;
     margin: 0;
     color: #ec3d72 !important;      /* Amaranth */
@@ -180,7 +180,7 @@ def atlas_light_theme():
                 "titleColor": "#020617",
                 "titleFontWeight": 600,
                 "gridColor": "#e5e7eb",
-                "domainColor": # "d4d4d8",  # will be treated as string
+                "domainColor": "#d4d4d8",
                 "labelLimit": 260,
             },
             "legend": {
@@ -196,9 +196,6 @@ def atlas_light_theme():
             },
         }
     }
-
-# small fix: correct the domainColor (above) to string
-atlas_light_theme()["config"]["axis"]["domainColor"] = "#d4d4d8"
 
 alt.themes.register("atlas_light", atlas_light_theme)
 alt.themes.enable("atlas_light")
@@ -291,17 +288,18 @@ def donut_chart_with_labels(df_pct: pd.DataFrame, cat_field: str, pct_field: str
         st.info("No responses for this question in the current filter.")
         return
 
-    data = df_pct.copy()
+    data = df_pct.copy().rename(columns={pct_field: "Percent"})
     data[cat_field] = data[cat_field].astype(str)
+    data["PercentLabel"] = data["Percent"].map(lambda v: f"{v:.1f}%")
 
     base = alt.Chart(data).encode(
-        theta=alt.Theta(f"{pct_field}:Q", stack=True),
+        theta=alt.Theta("Percent:Q", stack=True),
         color=alt.Color(f"{cat_field}:N", legend=alt.Legend(title=None)),
     )
 
     donut = base.mark_arc(innerRadius=70)
     text = base.mark_text(radius=110, size=13, color="#020617").encode(
-        text=alt.Text(f"{pct_field}:Q", format=".1f")
+        text=alt.Text("PercentLabel:N")
     )
 
     chart = (donut + text).properties(
@@ -321,13 +319,14 @@ def bar_chart_from_pct(
         st.info("No responses for this question in the current filter.")
         return
 
-    data = df_pct.copy()
+    data = df_pct.copy().rename(columns={pct_field: "Percent"})
     data[cat_field] = data[cat_field].astype(str)
+    data["PercentLabel"] = data["Percent"].map(lambda v: f"{v:.1f}%")
 
     if horizontal:
         base = alt.Chart(data).encode(
             x=alt.X(
-                f"{pct_field}:Q",
+                "Percent:Q",
                 title="Share of respondents (%)",
                 axis=alt.Axis(format=".0f"),
             ),
@@ -342,7 +341,7 @@ def bar_chart_from_pct(
         bars = base.mark_bar(color="#3b308f")
         labels = base.mark_text(
             align="left", baseline="middle", dx=4, color="#020617"
-        ).encode(text=alt.Text(f"{pct_field}:Q", format=".1f"))
+        ).encode(text=alt.Text("PercentLabel:N"))
 
         chart = (bars + labels).properties(
             height=max(260, 30 * len(data)),
@@ -357,7 +356,7 @@ def bar_chart_from_pct(
                 axis=alt.Axis(labelLimit=260, labelOverlap=False),
             ),
             y=alt.Y(
-                f"{pct_field}:Q",
+                "Percent:Q",
                 title="Share of respondents (%)",
                 axis=alt.Axis(format=".0f"),
             ),
@@ -365,7 +364,7 @@ def bar_chart_from_pct(
         bars = base.mark_bar(color="#3b308f")
         labels = base.mark_text(
             align="center", baseline="bottom", dy=-4, color="#020617"
-        ).encode(text=alt.Text(f"{pct_field}:Q", format=".1f"))
+        ).encode(text=alt.Text("PercentLabel:N"))
 
         chart = (bars + labels).properties(
             height=380,
@@ -414,6 +413,12 @@ def normalize_region_label(x):
     if "Europe" in s or "EMEA" in s:
         return "Europe"
     return s
+
+
+def kpi_value_str(pct: float | None) -> str:
+    if pct is None:
+        return "—"
+    return f"{pct:.1f}%"
 
 
 # ==================== MAIN APP ====================
@@ -521,11 +526,172 @@ def main():
     st.caption(f"Responses in current view: {len(flt)}")
 
     # ---- Tabs ----
-    tab_overview, tab_performance, tab_geo, tab_multi, tab_data = st.tabs(
-        ["Overview", "Performance", "Geography", "Partner & Impact", "Data"]
+    tab_summary, tab_overview, tab_performance, tab_geo, tab_multi, tab_data = st.tabs(
+        ["Exec Summary", "Overview", "Performance", "Geography", "Partner & Impact", "Data"]
     )
 
-    # ===== Tab 1 – OVERVIEW =====
+    # ======================================================
+    # TAB 0 – EXECUTIVE SUMMARY (KPI CARDS + NARRATIVE)
+    # ======================================================
+    with tab_summary:
+        create_section_header("Executive summary – current filter")
+
+        total_resp = len(flt)
+
+        # Top industry
+        top_industry_name = None
+        top_industry_pct = None
+        if COL_INDUSTRY in flt.columns and not flt[COL_INDUSTRY].dropna().empty:
+            ind_pct = value_counts_pct(flt[COL_INDUSTRY])
+            ind_pct = ind_pct.sort_values("pct", ascending=False)
+            if not ind_pct.empty:
+                top_industry_name = str(ind_pct.iloc[0]["category"])
+                top_industry_pct = float(ind_pct.iloc[0]["pct"])
+
+        # Top region
+        top_region_name = None
+        top_region_pct = None
+        if "RegionStd" in flt.columns and not flt["RegionStd"].dropna().empty:
+            reg_pct = value_counts_pct(flt["RegionStd"])
+            reg_pct = reg_pct.sort_values("pct", ascending=False)
+            if not reg_pct.empty:
+                top_region_name = str(reg_pct.iloc[0]["category"])
+                top_region_pct = float(reg_pct.iloc[0]["pct"])
+
+        # Larger companies (>= 501 employees)
+        large_emp_pct = None
+        if COL_EMPLOYEES in flt.columns:
+            emp_series = flt[COL_EMPLOYEES].dropna().astype(str)
+            if not emp_series.empty:
+                mask_large = emp_series.str.contains("5,000", na=False) | emp_series.str.contains("501", na=False)
+                large_count = mask_large.sum()
+                large_emp_pct = (large_count / len(emp_series)) * 100.0 if len(emp_series) > 0 else None
+
+        # Deal size higher than direct
+        higher_deal_pct = None
+        if COL_DEAL_SIZE in flt.columns:
+            ds = flt[COL_DEAL_SIZE].dropna().astype(str)
+            if not ds.empty:
+                mask_high = ds.str.contains("Higher than direct deals", case=False, na=False)
+                higher_deal_pct = (mask_high.sum() / len(ds)) * 100.0 if len(ds) > 0 else None
+
+        # CAC lower than direct
+        lower_cac_pct = None
+        if COL_CAC in flt.columns:
+            cac = flt[COL_CAC].dropna().astype(str)
+            if not cac.empty:
+                mask_low = cac.str.contains("Lower", case=False, na=False)
+                lower_cac_pct = (mask_low.sum() / len(cac)) * 100.0 if len(cac) > 0 else None
+
+        # Median win rate
+        median_win_rate = None
+        if COL_WIN_RATE in flt.columns:
+            wr = pd.to_numeric(flt[COL_WIN_RATE], errors="coerce").dropna()
+            if not wr.empty:
+                median_win_rate = float(wr.median())
+
+        # KPI cards
+        c1, c2, c3, c4 = st.columns(4)
+
+        with c1:
+            if top_industry_name is not None:
+                st.metric(
+                    "Top industry by respondents",
+                    f"{top_industry_name}",
+                    help=None,
+                )
+                st.caption(f"Share of respondents: {top_industry_pct:.1f}%")
+            else:
+                st.metric("Top industry by respondents", "—")
+
+        with c2:
+            if top_region_name is not None:
+                st.metric(
+                    "Top HQ region",
+                    f"{top_region_name}",
+                )
+                st.caption(f"Share of respondents: {top_region_pct:.1f}%")
+            else:
+                st.metric("Top HQ region", "—")
+
+        with c3:
+            st.metric(
+                "Larger companies (≥ ~500 employees)",
+                kpi_value_str(large_emp_pct),
+            )
+
+        with c4:
+            if median_win_rate is not None:
+                st.metric(
+                    "Median partner-involved win rate",
+                    f"{median_win_rate:.1f}%",
+                )
+            else:
+                st.metric("Median partner-involved win rate", "—")
+
+        c5, c6 = st.columns(2)
+        with c5:
+            st.metric(
+                "Deal size: partners > direct",
+                kpi_value_str(higher_deal_pct),
+            )
+        with c6:
+            st.metric(
+                "CAC lower with partners",
+                kpi_value_str(lower_cac_pct),
+            )
+
+        # Narrative (factual, no conclusions)
+        create_section_header("Snapshot (narrative)")
+
+        bullets = []
+
+        if top_industry_name is not None:
+            bullets.append(
+                f"- **{top_industry_name}** is the largest industry segment in the current view "
+                f"at **{top_industry_pct:.1f}%** of respondents."
+            )
+        if top_region_name is not None:
+            bullets.append(
+                f"- **{top_region_name}** is the most common HQ region, representing "
+                f"**{top_region_pct:.1f}%** of companies in the filtered sample."
+            )
+        if large_emp_pct is not None:
+            bullets.append(
+                f"- **{large_emp_pct:.1f}%** of companies report headcount around **500+ employees** "
+                f"(based on the 501–5,000 and 5,000+ bins)."
+            )
+        if higher_deal_pct is not None:
+            bullets.append(
+                f"- **{higher_deal_pct:.1f}%** of respondents say partner-involved deals are **larger** "
+                f"than direct or non-partner deals."
+            )
+        if lower_cac_pct is not None:
+            bullets.append(
+                f"- **{lower_cac_pct:.1f}%** report **lower CAC** from partner motions vs direct."
+            )
+        if median_win_rate is not None:
+            bullets.append(
+                f"- The median **win rate** for partner-involved deals in the current view is "
+                f"**{median_win_rate:.1f}%** (among companies that provided a numeric win rate)."
+            )
+
+        if total_resp:
+            bullets.insert(
+                0,
+                f"- The current filter includes **{total_resp}** responding companies.",
+            )
+
+        if bullets:
+            st.markdown("\n".join(bullets))
+        else:
+            st.markdown(
+                "No summary metrics are available for the current filter (insufficient data)."
+            )
+
+    # ======================================================
+    # TAB 1 – OVERVIEW
+    # ======================================================
     with tab_overview:
         create_section_header("Company profile (percentage breakdown)")
 
@@ -610,7 +776,9 @@ def main():
                     unsafe_allow_html=True,
                 )
 
-    # ===== Tab 2 – PERFORMANCE =====
+    # ======================================================
+    # TAB 2 – PERFORMANCE
+    # ======================================================
     with tab_performance:
         create_section_header("Deal performance vs direct motion")
 
@@ -669,7 +837,9 @@ def main():
             if COL_WIN_RATE in flt.columns:
                 win_rate_distribution_pct(flt, COL_WIN_RATE)
 
-    # ===== Tab 3 – GEOGRAPHY =====
+    # ======================================================
+    # TAB 3 – GEOGRAPHY
+    # ======================================================
     with tab_geo:
         create_section_header("Regional distribution (percentages)")
 
@@ -724,7 +894,7 @@ def main():
                     "ScatterplotLayer",
                     map_df,
                     get_position=["lon", "lat"],
-                    get_radius="pct * 120000",
+                    get_radius="Percent * 120000",
                     get_fill_color=[59, 48, 143, 200],
                     pickable=True,
                 )
@@ -739,7 +909,7 @@ def main():
                 deck = pdk.Deck(
                     layers=[layer],
                     initial_view_state=view_state,
-                    tooltip={"text": "{region}\nShare: {pct}%"},
+                    tooltip={"text": "{region}\nShare: {PercentLabel}"},
                 )
                 st.pydeck_chart(deck)
                 st.markdown(
@@ -747,11 +917,12 @@ def main():
                     unsafe_allow_html=True,
                 )
 
-    # ===== Tab 4 – PARTNER & IMPACT =====
+    # ======================================================
+    # TAB 4 – PARTNER & IMPACT
+    # ======================================================
     with tab_multi:
         create_section_header("How influence is measured (beyond sourced revenue)")
 
-        # Use substring so it matches all influence columns in the sheet
         influence_substr = "Besides Sourced Revenue, how else does your company measure partner influence impact?"
         infl_pct = multi_select_pct(flt, contains_substring=influence_substr)
         if not infl_pct.empty:
@@ -788,7 +959,9 @@ def main():
         else:
             st.info("No partnership-type multi-select columns detected for the current dataset.")
 
-    # ===== Tab 5 – DATA =====
+    # ======================================================
+    # TAB 5 – DATA
+    # ======================================================
     with tab_data:
         create_section_header("Filtered data")
 
