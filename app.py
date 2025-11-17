@@ -57,9 +57,8 @@ main.block-container {
     --glass: rgba(15,23,42,0.04);
 }
 
-/* Make sure ALL text is dark and readable on white */
-.app-wrapper,
-.app-wrapper * {
+/* Make sure ALL text is dark and readable on white (override Streamlit dark theme) */
+html, body, .stApp, .stApp * {
     color: #020617 !important;
 }
 
@@ -817,7 +816,10 @@ def main():
     )
 
     # ===== Embedded Pickaxe assistant (always visible, large) =====
-    st.markdown("## Assistant (SOPL Q&A)")
+    st.markdown(
+        "<h2 style='color:#020617; margin-top:1.5rem;'>Assistant (SOPL Q&A)</h2>",
+        unsafe_allow_html=True,
+    )
     st.markdown(
         "<div class='chart-caption'>Use this assistant to ask questions about what you're seeing in the dashboard.</div>",
         unsafe_allow_html=True,
@@ -829,7 +831,6 @@ def main():
     components.html(pickaxe_html, height=650, scrolling=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
-
 
 if __name__ == "__main__":
     main()
