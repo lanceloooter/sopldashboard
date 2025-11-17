@@ -430,7 +430,7 @@ def main():
         """
 <div class="header-row">
   <div>
-    <div class="main-header">SOPL 2025 Insights Platform</div>
+    <div class="main-header">STATE OF PARTNERSHIP LEADERS 2025 - Insights Platform</div>
     <div class="sub-header">Partnership analytics and strategic insights - SOPL</div>
   </div>
 </div>
