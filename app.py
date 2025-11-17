@@ -469,26 +469,14 @@ def create_data_health_panel(df: pd.DataFrame, mapping: dict, missing_readable: 
 
 # ==================== MAIN APP ====================
 def main():
-    # Theme selector (default to Light)
-    theme = st.sidebar.radio("Theme", options=["Dark", "Light"], index=1, help="Switch UI theme")
+    # No more dark/light toggle – force light theme only
     try:
-        if theme == "Light":
-            alt.themes.enable("light_simple")
-        else:
-            alt.themes.enable("simple")
+        alt.themes.enable("light_simple")
     except Exception:
         pass
 
-    # Bot toggle moved to sidebar (global)
-    show_bot = st.sidebar.checkbox(
-        "Show Assistant Bot (Pickaxe)",
-        value=st.session_state.get('show_bot', False),
-        help="Toggle the embedded assistant"
-    )
-    st.session_state['show_bot'] = bool(show_bot)
-
-    theme_class = "theme-light" if theme == "Light" else ""
-    st.markdown(f'<div class="app-wrapper {theme_class}">', unsafe_allow_html=True)
+    # Wrap the whole app in the light wrapper for your CSS
+    st.markdown('<div class="app-wrapper">', unsafe_allow_html=True)
 
     # Header
     st.markdown(
@@ -501,13 +489,19 @@ def main():
 
     # Data Upload (optional – app will use bundled data if nothing uploaded)
     with st.expander("Upload Data (optional)", expanded=False):
-        uploaded = st.file_uploader("Upload SOPL Data", type=["csv","xlsx","xls"], label_visibility="collapsed")
+        uploaded = st.file_uploader(
+            "Upload SOPL Data",
+            type=["csv", "xlsx", "xls"],
+            label_visibility="collapsed"
+        )
         encoding_choice = st.selectbox(
             "Encoding (auto attempts common encodings)",
-            options=["auto","cp1252","utf-8","utf-8-sig","latin-1"],
+            options=["auto", "cp1252", "utf-8", "utf-8-sig", "latin-1"],
             index=0
         )
-        st.caption("If you don't upload anything, the dashboard uses the built-in SOPL dataset packaged with the app.")
+        st.caption(
+            "If you don't upload anything, the dashboard uses the built-in SOPL dataset packaged with the app."
+        )
 
     # Load Data
     with st.spinner("Loading data..."):
