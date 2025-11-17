@@ -117,6 +117,26 @@ html, body, .stApp, .stApp * {
 .stTabs [data-baseweb="tab"] {
     font-size: 0.9rem;
 }
+
+/* Vega/Altair actions menu (export, fullscreen) – make it light, not black */
+.vega-embed .vega-actions {
+    background: #ffffff !important;
+    color: #020617 !important;
+    box-shadow: 0 4px 12px rgba(15,23,42,0.2);
+}
+.vega-embed .vega-actions a {
+    color: #020617 !important;
+}
+.vega-embed summary {
+    background: #e5e7eb !important;
+    color: #020617 !important;
+    border-radius: 999px;
+}
+
+/* Make axis labels more likely to show fully */
+.vega-embed text {
+    font-size: 11px;
+}
 </style>
 """,
     unsafe_allow_html=True,
@@ -137,6 +157,7 @@ def atlas_light_theme():
                 "titleFontWeight": 600,
                 "gridColor": "#e5e7eb",
                 "domainColor": "#d4d4d8",
+                "labelLimit": 260,
             },
             "legend": {
                 "labelColor": "#475569",
@@ -154,6 +175,12 @@ def atlas_light_theme():
 
 alt.themes.register("atlas_light", atlas_light_theme)
 alt.themes.enable("atlas_light")
+
+# Let users download PNGs / SVGs (Altair/Vega actions)
+alt.data_transformers.disable_max_rows()
+alt.renderers.set_embed_options(
+    actions={"export": True, "source": False, "compiled": False, "editor": False}
+)
 
 # ==================== HELPERS ====================
 @st.cache_data(show_spinner=False)
@@ -268,14 +295,19 @@ def bar_chart_from_pct(df_pct: pd.DataFrame, cat_field: str, pct_field: str, tit
                     title="Share of respondents (%)",
                     axis=alt.Axis(format=".0f"),
                 ),
-                y=alt.Y(f"{cat_field}:N", sort="-x", title=None),
+                y=alt.Y(
+                    f"{cat_field}:N",
+                    sort="-x",
+                    title=None,
+                    axis=alt.Axis(labelLimit=260),
+                ),
                 color=alt.value("#3b308f"),
                 tooltip=[
                     alt.Tooltip(f"{cat_field}:N", title="Category"),
                     alt.Tooltip(f"{pct_field}:Q", title="Share (%)", format=".1f"),
                 ],
             )
-            .properties(height=max(220, 26 * len(data)), title=title)
+            .properties(height=max(260, 30 * len(data)), title=title)
             .interactive()
         )
     else:
@@ -283,7 +315,12 @@ def bar_chart_from_pct(df_pct: pd.DataFrame, cat_field: str, pct_field: str, tit
             alt.Chart(data)
             .mark_bar()
             .encode(
-                x=alt.X(f"{cat_field}:N", sort="-y", title=None),
+                x=alt.X(
+                    f"{cat_field}:N",
+                    sort="-y",
+                    title=None,
+                    axis=alt.Axis(labelLimit=260),
+                ),
                 y=alt.Y(
                     f"{pct_field}:Q",
                     title="Share of respondents (%)",
@@ -295,7 +332,7 @@ def bar_chart_from_pct(df_pct: pd.DataFrame, cat_field: str, pct_field: str, tit
                     alt.Tooltip(f"{pct_field}:Q", title="Share (%)", format=".1f"),
                 ],
             )
-            .properties(height=360, title=title)
+            .properties(height=380, title=title)
             .interactive()
         )
 
@@ -321,7 +358,7 @@ def donut_chart_from_pct(df_pct: pd.DataFrame, cat_field: str, pct_field: str, t
                 alt.Tooltip(f"{pct_field}:Q", title="Share (%)", format=".1f"),
             ],
         )
-        .properties(width=360, height=360, title=title)
+        .properties(width=380, height=380, title=title)
         .interactive()
     )
 
@@ -352,6 +389,22 @@ def win_rate_distribution_pct(df: pd.DataFrame, col: str):
         '<div class="chart-caption">Percentages are based on respondents who answered the win-rate question.</div>',
         unsafe_allow_html=True,
     )
+
+
+def normalize_region_label(x):
+    """Standardize region labels for mapping & aggregation."""
+    if pd.isna(x):
+        return None
+    s = str(x)
+    if "North America" in s:
+        return "North America"
+    if "Latin America" in s:
+        return "Latin America"
+    if "Asia-Pacific" in s or "Asia Pacific" in s or "APAC" in s:
+        return "Asia Pacific"
+    if "Europe" in s or "EMEA" in s:
+        return "Europe"
+    return s
 
 
 # ==================== MAIN APP ====================
@@ -469,6 +522,13 @@ def main():
 
     st.caption(f"Responses in current view: {len(flt)}")
 
+    # Also keep a normalized-region version for all geo stuff
+    if COL_REGION in flt.columns:
+        flt = flt.copy()
+        flt["RegionStd"] = flt[COL_REGION].map(normalize_region_label)
+    else:
+        flt["RegionStd"] = None
+
     # ---- Tabs ----
     tab_overview, tab_performance, tab_geo, tab_multi, tab_data = st.tabs(
         ["Overview", "Performance", "Geography", "Partner & Impact", "Data"]
@@ -478,12 +538,12 @@ def main():
     with tab_overview:
         create_section_header("Company profile (percentage breakdown)")
 
-        # Bigger charts: 2 columns instead of 3
+        # Big charts: 2 x 2 layout
         c1, c2 = st.columns(2)
 
         with c1:
-            if COL_REGION in flt.columns:
-                region_pct = value_counts_pct(flt[COL_REGION])
+            if "RegionStd" in flt.columns:
+                region_pct = value_counts_pct(flt["RegionStd"])
                 donut_chart_from_pct(
                     region_pct, "category", "pct", "Region (HQ) share of respondents"
                 )
@@ -623,8 +683,8 @@ def main():
     with tab_geo:
         create_section_header("Regional distribution (percentages)")
 
-        if COL_REGION in flt.columns:
-            region_pct = value_counts_pct(flt[COL_REGION])
+        if "RegionStd" in flt.columns:
+            region_pct = value_counts_pct(flt["RegionStd"])
 
             g1, g2 = st.columns(2)
 
@@ -650,32 +710,28 @@ def main():
                 unsafe_allow_html=True,
             )
 
-            # --- Map view (using percentages) ---
+            # --- Actual map with bubbles sized by % ---
             create_section_header("Regional map (bubble size = share of respondents)")
 
-            # Map basic region names to lat/lon
             region_coords = {
                 "North America": (40.0, -100.0),
                 "Latin America": (-20.0, -60.0),
                 "Europe": (50.0, 10.0),
                 "Asia Pacific": (20.0, 100.0),
-                "Asia-Pacific": (20.0, 100.0),
-                "APAC": (20.0, 100.0),
             }
 
-            map_df = region_pct.copy()
-            map_df["lat"] = map_df["category"].map(lambda r: region_coords.get(r, (None, None))[0])
-            map_df["lon"] = map_df["category"].map(lambda r: region_coords.get(r, (None, None))[1])
+            map_df = region_pct.rename(columns={"category": "region"}).copy()
+            map_df["lat"] = map_df["region"].map(lambda r: region_coords.get(r, (None, None))[0])
+            map_df["lon"] = map_df["region"].map(lambda r: region_coords.get(r, (None, None))[1])
             map_df = map_df.dropna(subset=["lat", "lon"])
 
             if not map_df.empty:
-                # Radius scaled by percentage
                 layer = pdk.Layer(
                     "ScatterplotLayer",
                     map_df,
                     get_position=["lon", "lat"],
-                    get_radius="pct * 120000",  # tune for visual balance
-                    get_fill_color=[59, 48, 143, 180],
+                    get_radius="pct * 120000",
+                    get_fill_color=[59, 48, 143, 200],
                     pickable=True,
                 )
 
@@ -689,7 +745,7 @@ def main():
                 deck = pdk.Deck(
                     layers=[layer],
                     initial_view_state=view_state,
-                    tooltip={"text": "{category}\nShare: {pct}%"},
+                    tooltip={"text": "{region}\nShare: {pct}%"},
                 )
                 st.pydeck_chart(deck)
                 st.markdown(
@@ -698,23 +754,23 @@ def main():
                 )
 
         # Region x Revenue (within-region %)
-        if COL_REGION in flt.columns and COL_REVENUE in flt.columns:
+        if "RegionStd" in flt.columns and COL_REVENUE in flt.columns:
             create_section_header("Revenue bands by region (within-region share)")
 
-            tmp = flt[[COL_REGION, COL_REVENUE]].dropna()
+            tmp = flt[["RegionStd", COL_REVENUE]].dropna()
             if not tmp.empty:
                 total_by_region = (
-                    tmp.groupby(COL_REGION)[COL_REVENUE]
+                    tmp.groupby("RegionStd")[COL_REVENUE]
                     .count()
                     .rename("total")
                 )
                 cross = (
-                    tmp.groupby([COL_REGION, COL_REVENUE])[COL_REVENUE]
+                    tmp.groupby(["RegionStd", COL_REVENUE])[COL_REVENUE]
                     .count()
                     .rename("count")
                     .reset_index()
                 )
-                cross = cross.merge(total_by_region, on=COL_REGION, how="left")
+                cross = cross.merge(total_by_region, on="RegionStd", how="left")
                 cross["pct"] = cross["count"] / cross["total"] * 100.0
 
                 chart = (
@@ -726,10 +782,10 @@ def main():
                             title="Share within region (%)",
                             axis=alt.Axis(format=".0f"),
                         ),
-                        y=alt.Y(f"{COL_REGION}:N", title=None),
+                        y=alt.Y("RegionStd:N", title=None),
                         color=alt.Color(f"{COL_REVENUE}:N", title="Revenue band"),
                         tooltip=[
-                            alt.Tooltip(f"{COL_REGION}:N", title="Region"),
+                            alt.Tooltip("RegionStd:N", title="Region"),
                             alt.Tooltip(f"{COL_REVENUE}:N", title="Revenue band"),
                             alt.Tooltip("pct:Q", title="Share (%)", format=".1f"),
                         ],
@@ -788,6 +844,7 @@ def main():
         cols_available = flt.columns.tolist()
         default_cols = [
             COL_REGION,
+            "RegionStd",
             COL_INDUSTRY,
             COL_REVENUE,
             COL_EMPLOYEES,
@@ -831,6 +888,7 @@ def main():
     components.html(pickaxe_html, height=650, scrolling=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 if __name__ == "__main__":
     main()
