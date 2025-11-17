@@ -118,8 +118,6 @@ html, body, .stApp, .stApp * {
     font-size: 0.9rem;
 }
 
-st.markdown("""
-<style>
 .vega-embed .vega-actions {
     background: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
