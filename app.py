@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
-    page_title="STATE OF PARTNERSHIP LEADERS 2025 - Partnership Analytics",
+    page_title="SOPL 2025 - Partnership Analytics",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -421,6 +421,32 @@ def kpi_value_str(pct: float | None) -> str:
     return f"{pct:.1f}%"
 
 
+def kpi_card(title: str, value: str, subtitle: str | None = None, accent: bool = False):
+    """Nice-looking KPI card for execs."""
+    border_color = "#ec3d72" if accent else "#e2e8f0"
+    html = f"""
+<div style="
+    background:#ffffff;
+    border-radius:12px;
+    padding:12px 14px;
+    border:1px solid #e2e8f0;
+    border-top:3px solid {border_color};
+    box-shadow:0 4px 12px rgba(15,23,42,0.04);
+    min-height:96px;
+">
+  <div style="font-size:0.78rem; letter-spacing:0.06em; text-transform:uppercase;
+              color:#64748b; font-weight:600; margin-bottom:4px;">
+    {title}
+  </div>
+  <div style="font-size:1.8rem; font-weight:700; color:#020617; margin-bottom:2px; word-break:break-word;">
+    {value}
+  </div>
+  {f'<div style="font-size:0.85rem; color:#64748b;">{subtitle}</div>' if subtitle else ''}
+</div>
+"""
+    st.markdown(html, unsafe_allow_html=True)
+
+
 # ==================== MAIN APP ====================
 def main():
     st.markdown('<div class="app-wrapper">', unsafe_allow_html=True)
@@ -430,7 +456,7 @@ def main():
         """
 <div class="header-row">
   <div>
-    <div class="main-header">STATE OF PARTNERSHIP LEADERS 2025 - Insights Platform</div>
+    <div class="main-header">SOPL 2025 Insights Platform</div>
     <div class="sub-header">Partnership analytics and strategic insights - SOPL</div>
   </div>
 </div>
@@ -523,20 +549,16 @@ def main():
     if selected_employees:
         flt = flt[flt[COL_EMPLOYEES].isin(selected_employees)]
 
-    st.caption(f"Responses in current view: {len(flt)}")
-
     # ---- Tabs ----
-    tab_summary, tab_overview, tab_performance, tab_geo, tab_multi, tab_data = st.tabs(
-        ["Exec Summary", "Overview", "Performance", "Geography", "Partner & Impact", "Data"]
+    tab_overview, tab_performance, tab_geo, tab_multi, tab_data = st.tabs(
+        ["Overview", "Performance", "Geography", "Partner & Impact", "Data"]
     )
 
     # ======================================================
     # TAB 0 – EXECUTIVE SUMMARY (KPI CARDS + NARRATIVE)
     # ======================================================
-    with tab_summary:
+    with tab_overview:
         create_section_header("Executive summary – current filter")
-
-        total_resp = len(flt)
 
         # Top industry
         top_industry_name = None
@@ -563,7 +585,9 @@ def main():
         if COL_EMPLOYEES in flt.columns:
             emp_series = flt[COL_EMPLOYEES].dropna().astype(str)
             if not emp_series.empty:
-                mask_large = emp_series.str.contains("5,000", na=False) | emp_series.str.contains("501", na=False)
+                mask_large = emp_series.str.contains("5,000", na=False) | emp_series.str.contains(
+                    "501", na=False
+                )
                 large_count = mask_large.sum()
                 large_emp_pct = (large_count / len(emp_series)) * 100.0 if len(emp_series) > 0 else None
 
@@ -590,103 +614,45 @@ def main():
             if not wr.empty:
                 median_win_rate = float(wr.median())
 
-        # KPI cards
-        c1, c2, c3, c4 = st.columns(4)
-
-        with c1:
-            if top_industry_name is not None:
-                st.metric(
-                    "Top industry by respondents",
-                    f"{top_industry_name}",
-                    help=None,
-                )
-                st.caption(f"Share of respondents: {top_industry_pct:.1f}%")
-            else:
-                st.metric("Top industry by respondents", "—")
-
-        with c2:
-            if top_region_name is not None:
-                st.metric(
-                    "Top HQ region",
-                    f"{top_region_name}",
-                )
-                st.caption(f"Share of respondents: {top_region_pct:.1f}%")
-            else:
-                st.metric("Top HQ region", "—")
-
-        with c3:
-            st.metric(
-                "Larger companies (≥ ~500 employees)",
+        # KPI cards (no ellipsis, richer styling)
+        row1 = st.columns(4)
+        with row1[0]:
+            kpi_card(
+                "Top industry by respondents",
+                top_industry_name or "—",
+                subtitle=f"Share of respondents: {top_industry_pct:.1f}%" if top_industry_pct is not None else None,
+                accent=True,
+            )
+        with row1[1]:
+            kpi_card(
+                "Top HQ region",
+                top_region_name or "—",
+                subtitle=f"Share of respondents: {top_region_pct:.1f}%" if top_region_pct is not None else None,
+            )
+        with row1[2]:
+            kpi_card(
+                "Larger companies (≈500+ employees)",
                 kpi_value_str(large_emp_pct),
+                subtitle="Based on 501–5,000 and 5,000+ employee bins.",
+            )
+        with row1[3]:
+            kpi_card(
+                "Median partner-involved win rate",
+                f"{median_win_rate:.1f}%" if median_win_rate is not None else "—",
             )
 
-        with c4:
-            if median_win_rate is not None:
-                st.metric(
-                    "Median partner-involved win rate",
-                    f"{median_win_rate:.1f}%",
-                )
-            else:
-                st.metric("Median partner-involved win rate", "—")
-
-        c5, c6 = st.columns(2)
-        with c5:
-            st.metric(
+        row2 = st.columns(2)
+        with row2[0]:
+            kpi_card(
                 "Deal size: partners > direct",
                 kpi_value_str(higher_deal_pct),
+                subtitle="Companies reporting larger partner-involved deals vs direct.",
             )
-        with c6:
-            st.metric(
+        with row2[1]:
+            kpi_card(
                 "CAC lower with partners",
                 kpi_value_str(lower_cac_pct),
-            )
-
-        # Narrative (factual, no conclusions)
-        create_section_header("Snapshot (narrative)")
-
-        bullets = []
-
-        if top_industry_name is not None:
-            bullets.append(
-                f"- **{top_industry_name}** is the largest industry segment in the current view "
-                f"at **{top_industry_pct:.1f}%** of respondents."
-            )
-        if top_region_name is not None:
-            bullets.append(
-                f"- **{top_region_name}** is the most common HQ region, representing "
-                f"**{top_region_pct:.1f}%** of companies in the filtered sample."
-            )
-        if large_emp_pct is not None:
-            bullets.append(
-                f"- **{large_emp_pct:.1f}%** of companies report headcount around **500+ employees** "
-                f"(based on the 501–5,000 and 5,000+ bins)."
-            )
-        if higher_deal_pct is not None:
-            bullets.append(
-                f"- **{higher_deal_pct:.1f}%** of respondents say partner-involved deals are **larger** "
-                f"than direct or non-partner deals."
-            )
-        if lower_cac_pct is not None:
-            bullets.append(
-                f"- **{lower_cac_pct:.1f}%** report **lower CAC** from partner motions vs direct."
-            )
-        if median_win_rate is not None:
-            bullets.append(
-                f"- The median **win rate** for partner-involved deals in the current view is "
-                f"**{median_win_rate:.1f}%** (among companies that provided a numeric win rate)."
-            )
-
-        if total_resp:
-            bullets.insert(
-                0,
-                f"- The current filter includes **{total_resp}** responding companies.",
-            )
-
-        if bullets:
-            st.markdown("\n".join(bullets))
-        else:
-            st.markdown(
-                "No summary metrics are available for the current filter (insufficient data)."
+                subtitle="Companies reporting lower CAC from partner motions vs direct.",
             )
 
     # ======================================================
@@ -881,6 +847,9 @@ def main():
             }
 
             map_df = region_pct.rename(columns={"category": "region"}).copy()
+            # Add the fields pydeck actually uses
+            map_df["Percent"] = map_df["pct"]
+            map_df["PercentLabel"] = map_df["Percent"].map(lambda v: f"{v:.1f}%")
             map_df["lat"] = map_df["region"].map(
                 lambda r: region_coords.get(r, (None, None))[0]
             )
@@ -894,8 +863,12 @@ def main():
                     "ScatterplotLayer",
                     map_df,
                     get_position=["lon", "lat"],
-                    get_radius="Percent * 120000",
-                    get_fill_color=[59, 48, 143, 200],
+                    get_radius="Percent * 400000",
+                    radius_min_pixels=8,
+                    radius_max_pixels=60,
+                    get_fill_color=[59, 48, 143, 210],
+                    get_line_color=[255, 255, 255, 230],
+                    line_width_min_pixels=1,
                     pickable=True,
                 )
 
