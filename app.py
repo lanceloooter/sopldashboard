@@ -118,7 +118,8 @@ html, body, .stApp, .stApp * {
     font-size: 0.9rem;
 }
 
-/* Vega/Altair actions menu (export, fullscreen) – make it light, not black */
+st.markdown("""
+<style>
 .vega-embed .vega-actions {
     background: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
@@ -135,15 +136,8 @@ html, body, .stApp, .stApp * {
     border-radius: 50% !important;
     border: 1px solid #e2e8f0 !important;
 }
-
-/* Make axis labels more likely to show fully */
-.vega-embed text {
-    font-size: 11px;
-}
 </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
 # ==================== ALTAIR LIGHT THEME ====================
 def atlas_light_theme():
