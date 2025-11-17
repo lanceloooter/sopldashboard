@@ -7,7 +7,7 @@ import streamlit.components.v1 as components
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
     page_title="SOPL 2025 - Partnership Analytics",
-    page_icon="",
+    page_icon="PL_transparent_1080.ico",  # PL icon file in your repo
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -62,7 +62,7 @@ html, body, .stApp, .stApp * {
     color: #020617 !important;
 }
 
-/* Enhanced Layout + typography */
+/* Layout + typography */
 .app-wrapper {
     background: var(--bg);
     padding: 18px 24px 40px 24px;
@@ -79,12 +79,11 @@ html, body, .stApp, .stApp * {
     border-bottom: 1px solid #e2e8f0;
 }
 
-/* ENHANCED MAIN TITLE */
+/* MAIN TITLE – Amaranth + gradient */
 .main-header {
     font-size: 2.8rem;
     font-weight: 900;
     margin: 0;
-    color: #ec3d72 !important;      /* Amaranth */
     letter-spacing: -0.5px;
     line-height: 1.1;
     background: linear-gradient(135deg, #ec3d72 0%, #3b308f 100%);
@@ -102,7 +101,7 @@ html, body, .stApp, .stApp * {
     margin-top: 8px;
 }
 
-/* Enhanced Subtitle */
+/* Subtitle */
 .sub-header {
     font-size: 1.25rem;
     color: #64748b !important;
@@ -110,7 +109,7 @@ html, body, .stApp, .stApp * {
     font-weight: 400;
 }
 
-/* Enhanced Section Headers */
+/* Section headers */
 .section-header {
     font-size: 1.3rem;
     font-weight: 700;
@@ -121,6 +120,7 @@ html, body, .stApp, .stApp * {
     color: #1e293b !important;
 }
 
+/* Chart caption */
 .chart-caption {
     font-size: 0.85rem;
     color: var(--muted) !important;
@@ -128,22 +128,25 @@ html, body, .stApp, .stApp * {
     font-style: italic;
 }
 
-/* Enhanced Cards */
-.card {
-    background: var(--panel);
+/* Generic card (for charts / blocks) */
+.chart-container {
+    background: white;
     border-radius: 12px;
-    padding: 16px 18px;
-    border: 1px solid rgba(148,163,184,0.3);
-    box-shadow: 0 2px 8px rgba(15,23,42,0.04);
-    transition: all 0.2s ease;
+    padding: 1.5rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(15,23,42,0.03);
+    margin-bottom: 1.5rem;
 }
 
-.card:hover {
-    box-shadow: 0 4px 12px rgba(15,23,42,0.08);
-    transform: translateY(-1px);
+/* KPI grid */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0;
 }
 
-/* Enhanced Widget polish */
+/* Widget polish */
 .stSelectbox > div > div,
 .stMultiSelect > div > div {
     border-radius: 10px;
@@ -157,7 +160,7 @@ html, body, .stApp, .stApp * {
     box-shadow: 0 0 0 3px rgba(59, 48, 143, 0.1);
 }
 
-/* Enhanced Tabs */
+/* Tabs */
 .stTabs [data-baseweb="tab-list"] {
     gap: 8px;
     background-color: #f8fafc;
@@ -182,65 +185,7 @@ html, body, .stApp, .stApp * {
     color: #64748b !important;
 }
 
-/* Enhanced KPI Cards */
-.kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.5rem;
-    margin: 1.5rem 0;
-}
-
-/* Enhanced Chart Containers */
-.chart-container {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 2px 8px rgba(15,23,42,0.03);
-    margin-bottom: 1.5rem;
-}
-
-/* Enhanced Footer */
-.footer {
-    text-align: center;
-    color: #64748b !important;
-    font-size: 0.9rem;
-    margin-top: 3rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e2e8f0;
-}
-
-/* Responsive improvements */
-@media (max-width: 768px) {
-    .main-header {
-        font-size: 2.2rem;
-    }
-    .kpi-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Enhanced loading states */
-.stSpinner > div {
-    border-top-color: #3b308f !important;
-}
-
-/* Improved data table */
-.dataframe {
-    border-radius: 10px !important;
-    overflow: hidden !important;
-}
-
-/* Enhanced assistant section */
-.assistant-header {
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin: 2rem 0 1rem 0;
-    border: 1px solid #e2e8f0;
-}
-
-/* FIXED: Altair/Vega actions menu - light theme with visible text */
+/* Vega/Altair actions menu (export, fullscreen) – light theme */
 .vega-embed .vega-actions {
     background: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
@@ -275,6 +220,35 @@ html, body, .stApp, .stApp * {
 .vega-embed text {
     font-size: 11px;
 }
+
+/* Footer */
+.footer {
+    text-align: center;
+    color: #64748b !important;
+    font-size: 0.9rem;
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+/* Assistant header */
+.assistant-header {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 2rem 0 1rem 0;
+    border: 1px solid #e2e8f0;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .main-header {
+        font-size: 2.2rem;
+    }
+    .kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
 </style>
 """,
     unsafe_allow_html=True,
@@ -287,7 +261,16 @@ def atlas_light_theme():
             "view": {"stroke": "transparent"},
             "background": "#ffffff",
             "range": {
-                "category": ["#3b308f", "#ec3d72", "#64748b", "#93c5fd", "#1d4ed8", "#0f766e", "#f59e0b", "#ef4444"]
+                "category": [
+                    "#3b308f",
+                    "#ec3d72",
+                    "#64748b",
+                    "#93c5fd",
+                    "#1d4ed8",
+                    "#0f766e",
+                    "#f59e0b",
+                    "#ef4444",
+                ]
             },
             "axis": {
                 "labelColor": "#475569",
@@ -316,7 +299,7 @@ def atlas_light_theme():
             "header": {
                 "labelFontSize": 12,
                 "titleFontSize": 14,
-            }
+            },
         }
     }
 
@@ -354,7 +337,7 @@ def load_data() -> pd.DataFrame:
     st.error("❌ Could not load Google Sheet. Check the export URL and sharing settings.")
     return pd.DataFrame()
 
-# ==================== ENHANCED HELPERS ====================
+# ==================== HELPERS ====================
 def value_counts_pct(series: pd.Series) -> pd.DataFrame:
     """
     Return a DataFrame with category + percentage (0–100) for non-null responses.
@@ -417,21 +400,23 @@ def donut_chart_with_labels(df_pct: pd.DataFrame, cat_field: str, pct_field: str
 
     base = alt.Chart(data).encode(
         theta=alt.Theta("Percent:Q", stack=True),
-        color=alt.Color(f"{cat_field}:N", 
-                       legend=alt.Legend(title=None, orient='right'),
-                       scale=alt.Scale(scheme='category10')),
-        tooltip=[f'{cat_field}:N', alt.Tooltip('Percent:Q', format='.1f')]
+        color=alt.Color(
+            f"{cat_field}:N",
+            legend=alt.Legend(title=None, orient="right"),
+            scale=alt.Scale(scheme="category10"),
+        ),
+        tooltip=[f"{cat_field}:N", alt.Tooltip("Percent:Q", format=".1f")],
     )
 
     donut = base.mark_arc(innerRadius=70, stroke="#fff", strokeWidth=2)
-    text = base.mark_text(radius=115, size=12, fontWeight=600, color="#020617").encode(
-        text=alt.Text("PercentLabel:N")
-    )
+    text = base.mark_text(
+        radius=115, size=12, fontWeight=600, color="#020617"
+    ).encode(text=alt.Text("PercentLabel:N"))
 
     chart = (donut + text).properties(
         width=400,
         height=400,
-        title=alt.TitleParams(title, fontSize=16, fontWeight=700, anchor='start')
+        title=alt.TitleParams(title, fontSize=16, fontWeight=700, anchor="start"),
     ).configure_view(strokeWidth=0)
 
     st.altair_chart(chart, use_container_width=True)
@@ -449,17 +434,16 @@ def bar_chart_from_pct(
     data[cat_field] = data[cat_field].astype(str)
     data["PercentLabel"] = data["Percent"].map(lambda v: f"{v:.1f}%")
 
-    # Fix the scale domain issue - use proper Altair syntax
-    max_percent = data['Percent'].max()
+    max_percent = data["Percent"].max()
     domain_max = 100 if max_percent <= 100 else None
-    
+
     if horizontal:
         base = alt.Chart(data).encode(
             x=alt.X(
                 "Percent:Q",
                 title="Share of respondents (%)",
                 axis=alt.Axis(format=".0f", grid=True, gridColor="#f1f5f9"),
-                scale=alt.Scale(domain=[0, domain_max] if domain_max else None)
+                scale=alt.Scale(domain=[0, domain_max] if domain_max else None),
             ),
             y=alt.Y(
                 f"{cat_field}:N",
@@ -467,7 +451,10 @@ def bar_chart_from_pct(
                 title=None,
                 axis=alt.Axis(labelLimit=280, labelOverlap=False, labelFontSize=11),
             ),
-            tooltip=[f'{cat_field}:N', alt.Tooltip('Percent:Q', format='.1f', title='Percentage')]
+            tooltip=[
+                f"{cat_field}:N",
+                alt.Tooltip("Percent:Q", format=".1f", title="Percentage"),
+            ],
         )
 
         bars = base.mark_bar(color="#3b308f", cornerRadius=4)
@@ -477,7 +464,7 @@ def bar_chart_from_pct(
 
         chart = (bars + labels).properties(
             height=max(300, 35 * len(data)),
-            title=alt.TitleParams(title, fontSize=16, fontWeight=700, anchor='start')
+            title=alt.TitleParams(title, fontSize=16, fontWeight=700, anchor="start"),
         ).configure_axisY(labelPadding=8)
     else:
         base = alt.Chart(data).encode(
@@ -485,15 +472,23 @@ def bar_chart_from_pct(
                 f"{cat_field}:N",
                 sort="-y",
                 title=None,
-                axis=alt.Axis(labelLimit=280, labelOverlap=False, labelAngle=0, labelFontSize=11),
+                axis=alt.Axis(
+                    labelLimit=280,
+                    labelOverlap=False,
+                    labelAngle=0,
+                    labelFontSize=11,
+                ),
             ),
             y=alt.Y(
                 "Percent:Q",
                 title="Share of respondents (%)",
                 axis=alt.Axis(format=".0f", grid=True, gridColor="#f1f5f9"),
-                scale=alt.Scale(domain=[0, domain_max] if domain_max else None)
+                scale=alt.Scale(domain=[0, domain_max] if domain_max else None),
             ),
-            tooltip=[f'{cat_field}:N', alt.Tooltip('Percent:Q', format='.1f', title='Percentage')]
+            tooltip=[
+                f"{cat_field}:N",
+                alt.Tooltip("Percent:Q", format=".1f", title="Percentage"),
+            ],
         )
         bars = base.mark_bar(color="#3b308f", cornerRadius=4)
         labels = base.mark_text(
@@ -502,7 +497,7 @@ def bar_chart_from_pct(
 
         chart = (bars + labels).properties(
             height=400,
-            title=alt.TitleParams(title, fontSize=16, fontWeight=700, anchor='start')
+            title=alt.TitleParams(title, fontSize=16, fontWeight=700, anchor="start"),
         )
 
     st.altair_chart(chart, use_container_width=True)
@@ -557,7 +552,7 @@ def kpi_value_str(pct: float | None) -> str:
 
 
 def kpi_card(title: str, value: str, subtitle: str | None = None, accent: bool = False):
-    """Enhanced KPI card for execs."""
+    """Enhanced KPI card for execs (no emojis in titles)."""
     border_color = "#ec3d72" if accent else "#3b308f"
     html = f"""
 <div style="
@@ -589,11 +584,11 @@ def kpi_card(title: str, value: str, subtitle: str | None = None, accent: bool =
     st.markdown(html, unsafe_allow_html=True)
 
 
-# ==================== ENHANCED MAIN APP ====================
+# ==================== MAIN APP ====================
 def main():
     st.markdown('<div class="app-wrapper">', unsafe_allow_html=True)
 
-    # ---- Enhanced Header ----
+    # ---- Header ----
     st.markdown(
         """
 <div class="header-row">
@@ -610,15 +605,15 @@ def main():
     if df.empty:
         st.stop()
 
-    # Column names used in the dashboard
+    # Column names used in the dashboard (keep curly apostrophes – match sheet)
     COL_REGION = "Please select the region where your company is headquartered."
     COL_INDUSTRY = "What industry sector does your company operate in?"
-    COL_REVENUE = "What is your company's estimated annual revenue?"
-    COL_EMPLOYEES = "What is your company's total number of employees?"
+    COL_REVENUE = "What is your company’s estimated annual revenue?"
+    COL_EMPLOYEES = "What is your company’s total number of employees?"
     COL_DEAL_SIZE = "How does your average deal size involving partners compare to direct or non-partner deals?"
     COL_CAC = "How does your customer acquisition cost (CAC) from partners compared to direct sales and marketing?"
     COL_SALES_CYCLE = "How does your partner-led sales cycle compare to your direct sales cycle?"
-    COL_WIN_RATE = "What's your win rate for deals where partners are involved?"
+    COL_WIN_RATE = "What’s your win rate for deals where partners are involved?"
 
     # Normalized region
     if COL_REGION in df.columns:
@@ -627,18 +622,16 @@ def main():
     else:
         df["RegionStd"] = None
 
-    # ---- Enhanced Sidebar filters ----
-    st.sidebar.header("🔍 Data Filters")
-    st.sidebar.markdown("Apply filters to segment the data by company attributes.")
+    # ---- Sidebar filters ----
+    st.sidebar.header("Filters")
 
     # Region filter
     if "RegionStd" in df.columns:
         region_options = sorted(df["RegionStd"].dropna().unique().tolist())
         selected_regions = st.sidebar.multiselect(
-            "🌍 Region (HQ)",
+            "Region (HQ)",
             options=region_options,
             default=region_options,
-            help="Filter by company headquarters region"
         )
     else:
         selected_regions = None
@@ -657,10 +650,9 @@ def main():
             r for r in revenue_options if r not in revenue_order
         ]
         selected_revenue = st.sidebar.multiselect(
-            "💰 Annual revenue band",
+            "Annual revenue band",
             options=ordered_revenue,
             default=ordered_revenue,
-            help="Filter by company annual revenue"
         )
     else:
         selected_revenue = None
@@ -678,10 +670,9 @@ def main():
             e for e in emp_options if e not in emp_order
         ]
         selected_employees = st.sidebar.multiselect(
-            "👥 Total employees",
+            "Total employees",
             options=ordered_emp,
             default=ordered_emp,
-            help="Filter by company size"
         )
     else:
         selected_employees = None
@@ -695,18 +686,18 @@ def main():
     if selected_employees:
         flt = flt[flt[COL_EMPLOYEES].isin(selected_employees)]
 
-    # ---- Enhanced Tabs ----
+    # ---- Tabs ----
     tab_overview, tab_performance, tab_geo, tab_multi, tab_data = st.tabs(
-        ["📊 Overview", "🚀 Performance", "🌍 Geography", "🤝 Partner Impact", "📁 Data"]
+        ["Overview", "Performance", "Geography", "Partner & Impact", "Data"]
     )
 
     # ======================================================
-    # TAB 0 – ENHANCED EXECUTIVE SUMMARY
+    # OVERVIEW TAB – Executive snapshot + company profile
     # ======================================================
     with tab_overview:
-        create_section_header("Executive Summary")
+        # -------- Executive snapshot (KPIs) --------
+        create_section_header("Executive snapshot")
 
-        # Calculate KPIs
         # Top industry
         top_industry_name = None
         top_industry_pct = None
@@ -761,54 +752,58 @@ def main():
             if not wr.empty:
                 median_win_rate = float(wr.median())
 
-        # Enhanced KPI cards in grid layout
+        # KPI cards grid
         st.markdown('<div class="kpi-grid">', unsafe_allow_html=True)
         col1, col2, col3, col4 = st.columns(4)
-        
+
         with col1:
             kpi_card(
-                "🏭 Top Industry",
+                "Top industry by respondents",
                 top_industry_name or "—",
-                subtitle=f"Share: {top_industry_pct:.1f}%" if top_industry_pct is not None else "No data",
+                subtitle=f"Share of respondents: {top_industry_pct:.1f}%"
+                if top_industry_pct is not None
+                else None,
                 accent=True,
             )
         with col2:
             kpi_card(
-                "🌍 Top Region",
+                "Top HQ region",
                 top_region_name or "—",
-                subtitle=f"Share: {top_region_pct:.1f}%" if top_region_pct is not None else "No data",
+                subtitle=f"Share of respondents: {top_region_pct:.1f}%"
+                if top_region_pct is not None
+                else None,
             )
         with col3:
             kpi_card(
-                "🏢 Large Companies",
+                "Larger companies (≈500+ employees)",
                 kpi_value_str(large_emp_pct),
-                subtitle="500+ employees",
+                subtitle="Based on 501–5,000 and 5,000+ employee bins.",
             )
         with col4:
             kpi_card(
-                "🎯 Median Win Rate",
-                f"{median_win_rate:.1f}%" if median_win_rate is not None else "—",
-                subtitle="Partner-involved deals",
+                "Median partner-involved win rate",
+                f"{median_win_rate:.1f}%"
+                if median_win_rate is not None
+                else "—",
             )
-        
+
         col5, col6 = st.columns(2)
         with col5:
             kpi_card(
-                "💰 Larger Partner Deals",
+                "Deal size: partners greater than direct",
                 kpi_value_str(higher_deal_pct),
-                subtitle="vs. direct deals",
+                subtitle="Companies reporting larger partner-involved deals vs direct.",
             )
         with col6:
             kpi_card(
-                "📉 Lower Partner CAC",
+                "CAC lower with partners",
                 kpi_value_str(lower_cac_pct),
-                subtitle="vs. direct acquisition",
+                subtitle="Companies reporting lower CAC from partner motions vs direct.",
             )
-        
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        # Enhanced Company Profile Section
-        create_section_header("Company Profile Distribution")
+        # -------- Company profile charts --------
+        create_section_header("Company profile (percentage breakdown)")
 
         c1, c2 = st.columns(2)
 
@@ -817,9 +812,9 @@ def main():
             if "RegionStd" in flt.columns:
                 region_pct = value_counts_pct(flt["RegionStd"])
                 donut_chart_with_labels(
-                    region_pct, "category", "pct", "Region (HQ) Distribution"
+                    region_pct, "category", "pct", "Region (HQ) share of respondents"
                 )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
         with c2:
             st.markdown('<div class="chart-container">', unsafe_allow_html=True)
@@ -840,10 +835,10 @@ def main():
                     rev_pct,
                     "category",
                     "pct",
-                    "Annual Revenue Distribution",
+                    "Annual revenue band (share of respondents)",
                     horizontal=True,
                 )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
         c3, c4 = st.columns(2)
 
@@ -865,10 +860,10 @@ def main():
                     emp_pct,
                     "category",
                     "pct",
-                    "Company Size Distribution",
+                    "Company size (employees)",
                     horizontal=True,
                 )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
         with c4:
             st.markdown('<div class="chart-container">', unsafe_allow_html=True)
@@ -878,22 +873,16 @@ def main():
                     ind_pct,
                     "category",
                     "pct",
-                    "Industry Sector Distribution",
+                    "Industry sector (share of respondents)",
                     horizontal=True,
                 )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
     # ======================================================
-    # ENHANCED PERFORMANCE TAB
+    # PERFORMANCE TAB
     # ======================================================
     with tab_performance:
-        create_section_header("Partner Performance Metrics")
-
-        st.markdown("""
-        <div style="background: #f0f9ff; border-radius: 12px; padding: 1.5rem; margin: 1rem 0; border-left: 4px solid #3b308f;">
-            <strong>💡 Performance Insights:</strong> Compare partner-led metrics against direct sales performance to understand partnership effectiveness.
-        </div>
-        """, unsafe_allow_html=True)
+        create_section_header("Partner performance metrics")
 
         p1, p2 = st.columns(2)
 
@@ -905,10 +894,10 @@ def main():
                     ds_pct,
                     "category",
                     "pct",
-                    "Average Deal Size: Partner vs Direct",
+                    "Average deal size: partner vs direct",
                     horizontal=True,
                 )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
         with p2:
             st.markdown('<div class="chart-container">', unsafe_allow_html=True)
@@ -918,12 +907,12 @@ def main():
                     cac_pct,
                     "category",
                     "pct",
-                    "Partner-sourced CAC vs Direct",
+                    "Partner-sourced CAC vs direct",
                     horizontal=True,
                 )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-        create_section_header("Sales Efficiency Metrics")
+        create_section_header("Sales cycle and win rate")
 
         p3, p4 = st.columns(2)
 
@@ -935,22 +924,22 @@ def main():
                     sc_pct,
                     "category",
                     "pct",
-                    "Partner-led Sales Cycle vs Direct",
+                    "Partner-led sales cycle vs direct",
                     horizontal=True,
                 )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
         with p4:
             st.markdown('<div class="chart-container">', unsafe_allow_html=True)
             if COL_WIN_RATE in flt.columns:
                 win_rate_distribution_pct(flt, COL_WIN_RATE)
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
     # ======================================================
-    # ENHANCED GEOGRAPHY TAB
+    # GEOGRAPHY TAB
     # ======================================================
     with tab_geo:
-        create_section_header("Geographical Distribution")
+        create_section_header("Geographical distribution")
 
         if "RegionStd" in flt.columns:
             region_pct = value_counts_pct(flt["RegionStd"])
@@ -963,9 +952,9 @@ def main():
                     region_pct,
                     "category",
                     "pct",
-                    "Regional Distribution",
+                    "Regional distribution",
                 )
-                st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
             with g2:
                 st.markdown('<div class="chart-container">', unsafe_allow_html=True)
@@ -973,13 +962,12 @@ def main():
                     region_pct,
                     "category",
                     "pct",
-                    "Regional Share Comparison",
+                    "Regional share comparison",
                     horizontal=True,
                 )
-                st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
-            # Enhanced Map Section
-            create_section_header("Global Respondent Distribution")
+            create_section_header("Global respondent distribution")
 
             region_coords = {
                 "North America": (40.0, -100.0),
@@ -1027,21 +1015,17 @@ def main():
                     tooltip={"html": "<b>{region}</b><br>Share: {PercentLabel}"},
                 )
                 st.pydeck_chart(deck)
-                st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
     # ======================================================
-    # ENHANCED PARTNER & IMPACT TAB
+    # PARTNER & IMPACT TAB
     # ======================================================
     with tab_multi:
-        create_section_header("Partner Influence & Types")
+        create_section_header("Partner influence and types")
 
-        st.markdown("""
-        <div style="background: #f0f9ff; border-radius: 12px; padding: 1.5rem; margin: 1rem 0; border-left: 4px solid #3b308f;">
-            <strong>📈 Multi-select Analysis:</strong> These charts show the percentage of companies that selected each option. Companies can select multiple options.
-        </div>
-        """, unsafe_allow_html=True)
-
-        influence_substr = "Besides Sourced Revenue, how else does your company measure partner influence impact?"
+        influence_substr = (
+            "Besides Sourced Revenue, how else does your company measure partner influence impact?"
+        )
         infl_pct = multi_select_pct(flt, contains_substring=influence_substr)
         if not infl_pct.empty:
             st.markdown('<div class="chart-container">', unsafe_allow_html=True)
@@ -1049,14 +1033,14 @@ def main():
                 infl_pct,
                 "option",
                 "pct",
-                "Partner Influence Measurement Methods",
+                "Partner influence measurement methods",
                 horizontal=True,
             )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
         else:
             st.info("No influence-impact multi-select columns detected for the current dataset.")
 
-        create_section_header("Partnership Ecosystem")
+        create_section_header("Partnership ecosystem")
 
         types_substr = "Which of the following Partnership types does your company have?"
         types_pct = multi_select_pct(flt, contains_substring=types_substr)
@@ -1066,24 +1050,18 @@ def main():
                 types_pct,
                 "option",
                 "pct",
-                "Partnership Types in Use",
+                "Partnership types in place today",
                 horizontal=True,
             )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
         else:
             st.info("No partnership-type multi-select columns detected for the current dataset.")
 
     # ======================================================
-    # ENHANCED DATA TAB
+    # DATA TAB
     # ======================================================
     with tab_data:
-        create_section_header("Data Explorer")
-
-        st.markdown("""
-        <div style="background: #f8fafc; border-radius: 12px; padding: 1.5rem; margin: 1rem 0;">
-            <strong>🔍 Data Exploration:</strong> Browse and download the filtered dataset. Use the column selector to focus on specific data points.
-        </div>
-        """, unsafe_allow_html=True)
+        create_section_header("Data explorer")
 
         cols_available = flt.columns.tolist()
         default_cols = [
@@ -1100,52 +1078,52 @@ def main():
         default_cols = [c for c in default_cols if c in cols_available]
 
         selected_cols = st.multiselect(
-            "Select columns to display:",
+            "Columns to display",
             options=cols_available,
             default=default_cols if default_cols else cols_available[:8],
-            help="Choose which columns to display in the data table below"
         )
 
-        st.markdown(f"**Displaying {len(flt)} rows and {len(selected_cols)} columns**")
-        
+        st.markdown(
+            f"**Displaying {len(flt)} rows and {len(selected_cols)} columns in the current filter.**"
+        )
+
         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         st.dataframe(flt[selected_cols], use_container_width=True, height=400)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
         csv_bytes = flt[selected_cols].to_csv(index=False).encode("utf-8")
         st.download_button(
-            "📥 Download Filtered Data as CSV",
+            "Download filtered data as CSV",
             csv_bytes,
-            "sopl_2025_filtered_data.csv",
+            "sopl_filtered.csv",
             "text/csv",
-            help="Download the currently filtered dataset as a CSV file",
-            use_container_width=True
+            use_container_width=True,
         )
 
-    # ---- Enhanced Footer ----
+    # ---- Footer ----
     st.markdown(
         """
         <div class="footer">
             <strong>SOPL 2025 Insights Platform</strong> • Partnership analytics and strategic insights<br>
             <span style="color: #94a3b8; font-size: 0.8rem;">
-                Last updated: 2025 • Data sourced from State of Partnership Leaders Survey
+                Data sourced from State of Partnership Leaders Survey
             </span>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # ===== Enhanced Assistant Section =====
+    # ===== Assistant section (no emoji) =====
     st.markdown(
         """
         <div class="assistant-header">
-            <h2 style='color:#020617; margin:0;'>🤖 SOPL Assistant</h2>
-            <p style='color:#64748b; margin:0.5rem 0 0 0;'>Ask questions about the data and insights in this dashboard</p>
+            <h2 style='color:#020617; margin:0;'>Assistant (SOPL Q&amp;A)</h2>
+            <p style='color:#64748b; margin:0.5rem 0 0 0;'>Use this assistant to ask questions about what you're seeing in the dashboard.</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    
+
     pickaxe_html = """
 <div id="deployment-5870ff7d-8fcf-4395-976b-9e9fdefbb0ff" style="width:100%; max-width:1200px; margin:0 auto;"></div>
 <script src="https://studio.pickaxe.co/api/embed/bundle.js" defer></script>
