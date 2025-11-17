@@ -1,11 +1,9 @@
-import os
-from pathlib import Path
-
 import altair as alt
 import pandas as pd
 import pydeck as pdk
 import streamlit as st
 import streamlit.components.v1 as components
+from pathlib import Path
 
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
@@ -19,7 +17,7 @@ st.set_page_config(
 APP_DIR = Path(__file__).parent
 DEFAULT_CSV_PATH = APP_DIR / "data" / "SOPL 1002 Results - Raw.csv"
 
-# ==================== LIGHT THEME + CSS ====================
+# ==================== CSS / LIGHT THEME ====================
 st.markdown(
     """
 <style>
@@ -57,7 +55,7 @@ main.block-container {
     --glass: rgba(15,23,42,0.04);
 }
 
-/* Make sure ALL text is dark and readable on white (override Streamlit dark theme) */
+/* Make sure ALL text is dark and readable on white (override any dark theme) */
 html, body, .stApp, .stApp * {
     color: #020617 !important;
 }
@@ -118,26 +116,41 @@ html, body, .stApp, .stApp * {
     font-size: 0.9rem;
 }
 
+/* Vega/Altair actions menu (export, fullscreen) – light theme */
 .vega-embed .vega-actions {
     background: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
-    color: #1e293b !important;
+    color: #020617 !important;
     border-radius: 6px !important;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    box-shadow: 0 4px 12px rgba(15,23,42,0.18);
+    padding: 4px 8px !important;
 }
 .vega-embed .vega-actions a {
-    color: #1e293b !important;
+    color: #020617 !important;
     font-weight: 500 !important;
 }
-.vega-embed summary {
-    background: #ffffff !important;
-    border-radius: 50% !important;
-    border: 1px solid #e2e8f0 !important;
+.vega-embed details {
+    color: #020617 !important;
+}
+.vega-embed details > summary {
+    background-color:#ffffff !important;
+    border-radius:50% !important;
+    border:1px solid #e2e8f0 !important;
+}
+.vega-embed details[open] > summary {
+    box-shadow:0 2px 6px rgba(15,23,42,0.2);
+}
+
+/* Make axis labels more likely to show fully */
+.vega-embed text {
+    font-size: 11px;
 }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
-# ==================== ALTAIR LIGHT THEME ====================
+# ==================== ALTAIR LIGHT THEME & EXPORT ====================
 def atlas_light_theme():
     return {
         "config": {
@@ -171,7 +184,7 @@ def atlas_light_theme():
 alt.themes.register("atlas_light", atlas_light_theme)
 alt.themes.enable("atlas_light")
 
-# Let users download PNGs / SVGs (Altair/Vega actions)
+# Allow PNG/SVG export from the Altair menu
 alt.data_transformers.disable_max_rows()
 alt.renderers.set_embed_options(
     actions={"export": True, "source": False, "compiled": False, "editor": False}
@@ -179,56 +192,34 @@ alt.renderers.set_embed_options(
 
 # ==================== HELPERS ====================
 @st.cache_data(show_spinner=False)
-def load_data(uploaded_file, encoding_choice: str = "auto") -> pd.DataFrame:
-    """
-    Load SOPL data either from an uploaded file or from the bundled CSV.
-    Tries cp1252 first (Qualtrics-style export), then a few common encodings.
-    """
+def load_data() -> pd.DataFrame:
+    """Load SOPL data from the bundled CSV with robust encoding attempts."""
     encodings = ["cp1252", "utf-8-sig", "utf-8", "latin-1"]
+    if not DEFAULT_CSV_PATH.exists():
+        st.error(
+            f"Bundled SOPL CSV not found at {DEFAULT_CSV_PATH}. "
+            "Please place 'SOPL 1002 Results - Raw.csv' in a 'data' folder next to app.py."
+        )
+        return pd.DataFrame()
 
-    def _read_any(path_or_buf):
-        buf = path_or_buf
-        tried = []
-        for enc in (encodings if encoding_choice == "auto" else [encoding_choice]):
-            try:
-                return pd.read_csv(buf, encoding=enc)
-            except Exception as e:
-                tried.append(f"{enc}: {e}")
-                continue
-        raise RuntimeError("All decode attempts failed:\n" + "\n".join(tried))
-
-    # 1) Uploaded
-    if uploaded_file is not None:
-        name = (uploaded_file.name or "").lower()
-        if name.endswith((".xlsx", ".xls")):
-            try:
-                return pd.read_excel(uploaded_file)
-            except Exception:
-                pass
+    for enc in encodings:
         try:
-            return _read_any(uploaded_file)
-        except Exception as e:
-            st.error(f"Could not read uploaded file: {e}")
-            return pd.DataFrame()
-
-    # 2) Fallback to repo CSV
-    if DEFAULT_CSV_PATH.exists():
-        try:
-            return _read_any(str(DEFAULT_CSV_PATH))
-        except Exception as e:
-            st.error(
-                f"Bundled SOPL CSV found at {DEFAULT_CSV_PATH} but could not be read: {e}"
-            )
-            return pd.DataFrame()
+            return pd.read_csv(DEFAULT_CSV_PATH, encoding=enc)
+        except Exception:
+            continue
 
     st.error(
-        "No data available. Upload a SOPL CSV/XLSX, or ensure the default CSV is packaged at /data/SOPL 1002 Results - Raw.csv."
+        f"Could not decode '{DEFAULT_CSV_PATH.name}' with common encodings "
+        "(cp1252, utf-8-sig, utf-8, latin-1)."
     )
     return pd.DataFrame()
 
 
 def value_counts_pct(series: pd.Series) -> pd.DataFrame:
-    """Return a DataFrame with category + percentage (0–100) for non-null responses."""
+    """
+    Return a DataFrame with category + percentage (0–100) for non-null responses.
+    % = count(category) / total_non_null * 100, so the numbers are correct even when filtered.
+    """
     s = series.dropna()
     if s.empty:
         return pd.DataFrame(columns=["category", "pct"])
@@ -239,7 +230,9 @@ def value_counts_pct(series: pd.Series) -> pd.DataFrame:
     return out
 
 
-def multi_select_pct(df: pd.DataFrame, col_prefix: str = None, contains_substring: str = None) -> pd.DataFrame:
+def multi_select_pct(
+    df: pd.DataFrame, col_prefix: str | None = None, contains_substring: str | None = None
+) -> pd.DataFrame:
     """
     For Qualtrics-style multi-select (one column per option with 1/0/NaN),
     compute share of respondents selecting each option.
@@ -272,7 +265,38 @@ def create_section_header(title: str):
     st.markdown(f'<div class="section-header">{title}</div>', unsafe_allow_html=True)
 
 
-def bar_chart_from_pct(df_pct: pd.DataFrame, cat_field: str, pct_field: str, title: str, horizontal: bool = True):
+def donut_chart_with_labels(df_pct: pd.DataFrame, cat_field: str, pct_field: str, title: str):
+    """Donut with % labels on slices (no axes)."""
+    if df_pct.empty:
+        st.info("No responses for this question in the current filter.")
+        return
+
+    data = df_pct.copy()
+    data[cat_field] = data[cat_field].astype(str)
+
+    base = alt.Chart(data).encode(
+        theta=alt.Theta(f"{pct_field}:Q", stack=True),
+        color=alt.Color(f"{cat_field}:N", legend=alt.Legend(title=None)),
+    )
+
+    donut = base.mark_arc(innerRadius=70)
+    text = base.mark_text(radius=110, size=13, color="#020617").encode(
+        text=alt.Text(f"{pct_field}:Q", format=".1f")
+    )
+
+    chart = (donut + text).properties(
+        width=380,
+        height=380,
+        title=title,
+    ).interactive()
+
+    st.altair_chart(chart, use_container_width=True)
+
+
+def bar_chart_from_pct(
+    df_pct: pd.DataFrame, cat_field: str, pct_field: str, title: str, horizontal: bool = True
+):
+    """Bar chart with % labels on bars."""
     if df_pct.empty:
         st.info("No responses for this question in the current filter.")
         return
@@ -281,81 +305,52 @@ def bar_chart_from_pct(df_pct: pd.DataFrame, cat_field: str, pct_field: str, tit
     data[cat_field] = data[cat_field].astype(str)
 
     if horizontal:
-        chart = (
-            alt.Chart(data)
-            .mark_bar()
-            .encode(
-                x=alt.X(
-                    f"{pct_field}:Q",
-                    title="Share of respondents (%)",
-                    axis=alt.Axis(format=".0f"),
-                ),
-                y=alt.Y(
-                    f"{cat_field}:N",
-                    sort="-x",
-                    title=None,
-                    axis=alt.Axis(labelLimit=260),
-                ),
-                color=alt.value("#3b308f"),
-                tooltip=[
-                    alt.Tooltip(f"{cat_field}:N", title="Category"),
-                    alt.Tooltip(f"{pct_field}:Q", title="Share (%)", format=".1f"),
-                ],
-            )
-            .properties(height=max(260, 30 * len(data)), title=title)
-            .interactive()
+        base = alt.Chart(data).encode(
+            x=alt.X(
+                f"{pct_field}:Q",
+                title="Share of respondents (%)",
+                axis=alt.Axis(format=".0f"),
+            ),
+            y=alt.Y(
+                f"{cat_field}:N",
+                sort="-x",
+                title=None,
+                axis=alt.Axis(labelLimit=260, labelOverlap=False),
+            ),
         )
+
+        bars = base.mark_bar(color="#3b308f")
+        labels = base.mark_text(
+            align="left", baseline="middle", dx=4, color="#020617"
+        ).encode(text=alt.Text(f"{pct_field}:Q", format=".1f"))
+
+        chart = (bars + labels).properties(
+            height=max(260, 30 * len(data)),
+            title=title,
+        ).interactive()
     else:
-        chart = (
-            alt.Chart(data)
-            .mark_bar()
-            .encode(
-                x=alt.X(
-                    f"{cat_field}:N",
-                    sort="-y",
-                    title=None,
-                    axis=alt.Axis(labelLimit=260),
-                ),
-                y=alt.Y(
-                    f"{pct_field}:Q",
-                    title="Share of respondents (%)",
-                    axis=alt.Axis(format=".0f"),
-                ),
-                color=alt.value("#3b308f"),
-                tooltip=[
-                    alt.Tooltip(f"{cat_field}:N", title="Category"),
-                    alt.Tooltip(f"{pct_field}:Q", title="Share (%)", format=".1f"),
-                ],
-            )
-            .properties(height=380, title=title)
-            .interactive()
+        base = alt.Chart(data).encode(
+            x=alt.X(
+                f"{cat_field}:N",
+                sort="-y",
+                title=None,
+                axis=alt.Axis(labelLimit=260, labelOverlap=False),
+            ),
+            y=alt.Y(
+                f"{pct_field}:Q",
+                title="Share of respondents (%)",
+                axis=alt.Axis(format=".0f"),
+            ),
         )
+        bars = base.mark_bar(color="#3b308f")
+        labels = base.mark_text(
+            align="center", baseline="bottom", dy=-4, color="#020617"
+        ).encode(text=alt.Text(f"{pct_field}:Q", format=".1f"))
 
-    st.altair_chart(chart, use_container_width=True)
-
-
-def donut_chart_from_pct(df_pct: pd.DataFrame, cat_field: str, pct_field: str, title: str):
-    if df_pct.empty:
-        st.info("No responses for this question in the current filter.")
-        return
-
-    data = df_pct.copy()
-    data[cat_field] = data[cat_field].astype(str)
-
-    chart = (
-        alt.Chart(data)
-        .mark_arc(innerRadius=70)
-        .encode(
-            theta=alt.Theta(f"{pct_field}:Q", stack=True),
-            color=alt.Color(f"{cat_field}:N", legend=alt.Legend(title=None)),
-            tooltip=[
-                alt.Tooltip(f"{cat_field}:N", title="Category"),
-                alt.Tooltip(f"{pct_field}:Q", title="Share (%)", format=".1f"),
-            ],
-        )
-        .properties(width=380, height=380, title=title)
-        .interactive()
-    )
+        chart = (bars + labels).properties(
+            height=380,
+            title=title,
+        ).interactive()
 
     st.altair_chart(chart, use_container_width=True)
 
@@ -366,7 +361,6 @@ def win_rate_distribution_pct(df: pd.DataFrame, col: str):
         st.info("No win-rate responses in the current filter.")
         return
 
-    # Bin into 0–10, 10–20, ..., 90–100
     bins = list(range(0, 101, 10))
     labels = [f"{b}–{b+10}%" for b in bins[:-1]]
     binned = pd.cut(series, bins=bins, labels=labels, include_lowest=True, right=False)
@@ -419,25 +413,7 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # ---- Data upload (optional) ----
-    with st.expander("Upload Data (optional)", expanded=False):
-        uploaded = st.file_uploader(
-            "Upload SOPL Data",
-            type=["csv", "xlsx", "xls"],
-            label_visibility="collapsed",
-        )
-        encoding_choice = st.selectbox(
-            "Encoding (auto will try cp1252, utf-8-sig, utf-8, latin-1)",
-            options=["auto", "cp1252", "utf-8-sig", "utf-8", "latin-1"],
-            index=0,
-        )
-        st.caption(
-            "If you don't upload anything, the dashboard will use the bundled SOPL CSV "
-            "packaged with the app (data/SOPL 1002 Results - Raw.csv)."
-        )
-
-    df = load_data(uploaded, encoding_choice)
-
+    df = load_data()
     if df.empty:
         st.stop()
 
@@ -451,12 +427,19 @@ def main():
     COL_SALES_CYCLE = "How does your partner-led sales cycle compare to your direct sales cycle?"
     COL_WIN_RATE = "What’s your win rate for deals where partners are involved?"
 
+    # Normalized region
+    if COL_REGION in df.columns:
+        df = df.copy()
+        df["RegionStd"] = df[COL_REGION].map(normalize_region_label)
+    else:
+        df["RegionStd"] = None
+
     # ---- Sidebar filters: Region, Revenue, Employees ----
     st.sidebar.header("Filters")
 
     # Region filter
-    if COL_REGION in df.columns:
-        region_options = sorted(df[COL_REGION].dropna().unique().tolist())
+    if "RegionStd" in df.columns:
+        region_options = sorted(df["RegionStd"].dropna().unique().tolist())
         selected_regions = st.sidebar.multiselect(
             "Region (HQ)",
             options=region_options,
@@ -509,7 +492,7 @@ def main():
     # Apply filters
     flt = df.copy()
     if selected_regions:
-        flt = flt[flt[COL_REGION].isin(selected_regions)]
+        flt = flt[flt["RegionStd"].isin(selected_regions)]
     if selected_revenue:
         flt = flt[flt[COL_REVENUE].isin(selected_revenue)]
     if selected_employees:
@@ -517,29 +500,21 @@ def main():
 
     st.caption(f"Responses in current view: {len(flt)}")
 
-    # Also keep a normalized-region version for all geo stuff
-    if COL_REGION in flt.columns:
-        flt = flt.copy()
-        flt["RegionStd"] = flt[COL_REGION].map(normalize_region_label)
-    else:
-        flt["RegionStd"] = None
-
     # ---- Tabs ----
     tab_overview, tab_performance, tab_geo, tab_multi, tab_data = st.tabs(
         ["Overview", "Performance", "Geography", "Partner & Impact", "Data"]
     )
 
-    # ===== Overview tab =====
+    # ===== Tab 1 – OVERVIEW =====
     with tab_overview:
         create_section_header("Company profile (percentage breakdown)")
 
-        # Big charts: 2 x 2 layout
         c1, c2 = st.columns(2)
 
         with c1:
             if "RegionStd" in flt.columns:
                 region_pct = value_counts_pct(flt["RegionStd"])
-                donut_chart_from_pct(
+                donut_chart_with_labels(
                     region_pct, "category", "pct", "Region (HQ) share of respondents"
                 )
                 st.markdown(
@@ -615,7 +590,7 @@ def main():
                     unsafe_allow_html=True,
                 )
 
-    # ===== Performance tab =====
+    # ===== Tab 2 – PERFORMANCE =====
     with tab_performance:
         create_section_header("Deal performance vs direct motion")
 
@@ -674,7 +649,7 @@ def main():
             if COL_WIN_RATE in flt.columns:
                 win_rate_distribution_pct(flt, COL_WIN_RATE)
 
-    # ===== Geography tab =====
+    # ===== Tab 3 – GEOGRAPHY =====
     with tab_geo:
         create_section_header("Regional distribution (percentages)")
 
@@ -684,7 +659,7 @@ def main():
             g1, g2 = st.columns(2)
 
             with g1:
-                donut_chart_from_pct(
+                donut_chart_with_labels(
                     region_pct,
                     "category",
                     "pct",
@@ -705,7 +680,7 @@ def main():
                 unsafe_allow_html=True,
             )
 
-            # --- Actual map with bubbles sized by % ---
+            # --- Map with bubbles sized by % ---
             create_section_header("Regional map (bubble size = share of respondents)")
 
             region_coords = {
@@ -716,8 +691,12 @@ def main():
             }
 
             map_df = region_pct.rename(columns={"category": "region"}).copy()
-            map_df["lat"] = map_df["region"].map(lambda r: region_coords.get(r, (None, None))[0])
-            map_df["lon"] = map_df["region"].map(lambda r: region_coords.get(r, (None, None))[1])
+            map_df["lat"] = map_df["region"].map(
+                lambda r: region_coords.get(r, (None, None))[0]
+            )
+            map_df["lon"] = map_df["region"].map(
+                lambda r: region_coords.get(r, (None, None))[1]
+            )
             map_df = map_df.dropna(subset=["lat", "lon"])
 
             if not map_df.empty:
@@ -794,7 +773,7 @@ def main():
                     unsafe_allow_html=True,
                 )
 
-    # ===== Partner & Impact tab =====
+    # ===== Tab 4 – PARTNER & IMPACT =====
     with tab_multi:
         create_section_header("How influence is measured (beyond sourced revenue)")
 
@@ -832,7 +811,7 @@ def main():
                 unsafe_allow_html=True,
             )
 
-    # ===== Data tab =====
+    # ===== Tab 5 – DATA =====
     with tab_data:
         create_section_header("Filtered data")
 
@@ -857,6 +836,14 @@ def main():
         )
 
         st.dataframe(flt[selected_cols], use_container_width=True)
+
+        csv_bytes = flt[selected_cols].to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Download filtered data as CSV",
+            csv_bytes,
+            "sopl_filtered.csv",
+            "text/csv",
+        )
 
     # ---- Footer ----
     st.markdown("---")
