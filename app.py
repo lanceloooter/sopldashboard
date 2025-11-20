@@ -417,7 +417,6 @@ def multi_select_pct(
     out = out.sort_values("pct", ascending=False)
     return out
 
-
 def create_section_header(title: str):
     st.markdown(f'<div class="section-header">{title}</div>', unsafe_allow_html=True)
 
