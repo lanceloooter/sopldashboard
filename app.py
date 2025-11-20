@@ -385,7 +385,7 @@ def multi_select_pct(
 ) -> pd.DataFrame:
     """
     For Qualtrics-style multi-select (one column per option with 1/0/NaN),
-    compute share of respondents selecting each option.
+    compute percentage distribution of selections (will sum to 100%).
     """
     if col_prefix:
         cols = [c for c in df.columns if c.startswith(col_prefix)]
@@ -397,21 +397,30 @@ def multi_select_pct(
     if not cols:
         return pd.DataFrame(columns=["option", "pct"])
 
-    rows = []
+    # Count total selections across all options
+    total_selections = 0
+    selection_counts = {}
+    
     for c in cols:
         col = df[c]
-        # Only count non-null responses for this specific question
-        valid_responses = col.dropna()
-        n_valid = len(valid_responses)
+        # Count selections (1, 1.0, True)
+        selected = ((col == 1) | (col == 1.0) | (col == True)).sum()
+        selection_counts[c] = selected
+        total_selections += selected
+
+    rows = []
+    for c in cols:
+        selected = selection_counts[c]
+        # Calculate percentage of total selections
+        pct = (selected / total_selections * 100.0) if total_selections > 0 else 0.0
         
-        if n_valid > 0:
-            selected = ((valid_responses == 1) | (valid_responses == 1.0) | (valid_responses == True)).sum()
-            pct = (selected / n_valid * 100.0)
-        else:
-            pct = 0.0
-            
         label = c.split("_", 1)[1] if "_" in c else c
-        rows.append({"option": label, "pct": pct, "respondents": n_valid})
+        rows.append({
+            "option": label, 
+            "pct": pct, 
+            "count": selected, 
+            "total_selections": total_selections
+        })
 
     out = pd.DataFrame(rows)
     out = out.sort_values("pct", ascending=False)
