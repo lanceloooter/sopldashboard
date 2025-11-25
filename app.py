@@ -1,6 +1,6 @@
 import altair as alt
 import pandas as pd
-import pydeck as pdk  # still imported in case you want later; not used now
+import pydeck as pdk  # kept in case you want maps later
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -37,43 +37,32 @@ PL_COLORS = [
     PL_TINTS["cerulean_light"],
 ]
 
-TOP_N_DEFAULT = 4  # Top 4 categories everywhere
+TOP_N_DEFAULT = 4  # Show top 4 categories everywhere
 
 
 # ==================== ENHANCED CSS / LIGHT THEME ====================
 st.markdown(
     """
 <style>
-/* Force light background everywhere */
 html, body, .stApp {
     background-color: #ffffff !important;
     color: #020617;
 }
-
-/* Main view container */
 [data-testid="stAppViewContainer"] {
     background-color: #ffffff !important;
 }
-
-/* Main block container */
 main.block-container {
     background-color: #ffffff !important;
     padding-top: 1rem;
 }
-
-/* Sidebar enhancements */
 [data-testid="stSidebar"] {
     background-color: #0b1120 !important;
     border-right: 1px solid #1e293b;
 }
-
-/* Sidebar controls */
 [data-testid="stSidebar"] .stSelectbox,
 [data-testid="stSidebar"] .stMultiSelect {
     margin-bottom: 1rem;
 }
-
-/* Base tokens */
 :root {
     --bg: #ffffff;
     --panel: #ffffff;
@@ -86,14 +75,11 @@ main.block-container {
     --danger: #ef4444;
     --glass: rgba(15,23,42,0.04);
 }
-
-/* Layout + typography */
 .app-wrapper {
     background: var(--bg);
     padding: 18px 24px 40px 24px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
-
 .header-row {
     display:flex;
     align-items:flex-start;
@@ -103,8 +89,6 @@ main.block-container {
     padding-bottom: 1rem;
     border-bottom: 1px solid #e2e8f0;
 }
-
-/* MAIN TITLE – gradient */
 .main-header {
     font-size: 2.8rem;
     font-weight: 900;
@@ -125,16 +109,12 @@ main.block-container {
     border-radius: 4px;
     margin-top: 8px;
 }
-
-/* Subtitle */
 .sub-header {
     font-size: 1.25rem;
     color: #64748b !important;
     margin-top: 8px;
     font-weight: 400;
 }
-
-/* Section headers */
 .section-header {
     font-size: 1.3rem;
     font-weight: 700;
@@ -144,16 +124,12 @@ main.block-container {
     border-bottom: 2px solid #f1f5f9;
     color: #1e293b !important;
 }
-
-/* Chart caption */
 .chart-caption {
     font-size: 0.85rem;
     color: var(--muted) !important;
     margin-top: 8px;
     font-style: italic;
 }
-
-/* Generic card (for charts / blocks) */
 .chart-container {
     background: white;
     border-radius: 12px;
@@ -162,16 +138,12 @@ main.block-container {
     box-shadow: 0 2px 8px rgba(15,23,42,0.03);
     margin-bottom: 1.5rem;
 }
-
-/* KPI grid */
 .kpi-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 1.5rem;
     margin: 1.5rem 0;
 }
-
-/* Widget polish + brand colors for filters */
 .stSelectbox > div > div,
 .stMultiSelect > div > div {
     border-radius: 10px;
@@ -180,30 +152,23 @@ main.block-container {
     background-color: #020617;
     color: #f9fafb !important;
 }
-
 .stSelectbox > div > div:hover,
 .stMultiSelect > div > div:hover {
     border-color: #f97373;
     box-shadow: 0 0 0 3px rgba(236, 61, 114, 0.4);
 }
-
-/* Multiselect tags aligned to brand */
 .stMultiSelect [data-baseweb="tag"] {
     background-color: #ec3d72 !important;
     color: #ffffff !important;
     border-radius: 999px !important;
     font-weight: 600 !important;
 }
-
-/* Tabs */
 .stTabs [data-baseweb="tab-list"] {
     gap: 8px;
     background-color: #020617;
     padding: 4px;
     border-radius: 12px;
 }
-
-/* Base tab style */
 .stTabs [data-baseweb="tab"] {
     font-size: 0.95rem;
     font-weight: 600;
@@ -212,8 +177,6 @@ main.block-container {
     transition: all 0.2s ease;
     border: none;
 }
-
-/* Selected tab */
 .stTabs [data-baseweb="tab"][aria-selected="true"] {
     background-color: #3b308f;
     color: #ffffff !important;
@@ -228,19 +191,13 @@ main.block-container {
     border-radius: 999px;
     background: linear-gradient(90deg, #ec3d72, #f97373);
 }
-
-/* Ensure all children text is white in the active tab */
 .stTabs [data-baseweb="tab"][aria-selected="true"] * {
     color: #ffffff !important;
 }
-
-/* Unselected tab */
 .stTabs [data-baseweb="tab"][aria-selected="false"] {
     background-color: transparent;
     color: #e5e7eb !important;
 }
-
-/* Vega/Altair actions menu – light theme */
 .vega-embed .vega-actions {
     background: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
@@ -253,14 +210,9 @@ main.block-container {
     color: #020617 !important;
     font-weight: 500 !important;
 }
-
-/* Fix fullscreen / menu icon color */
 .vega-embed details > summary svg {
     stroke: #020617 !important;
     fill: #020617 !important;
-}
-.vega-embed details {
-    color: #020617 !important;
 }
 .vega-embed details > summary {
     background-color:#ffffff !important;
@@ -270,13 +222,9 @@ main.block-container {
 .vega-embed details[open] > summary {
     box-shadow:0 2px 6px rgba(15,23,42,0.2);
 }
-
-/* Make axis labels more likely to show fully */
 .vega-embed text {
     font-size: 11px;
 }
-
-/* Footer */
 .footer {
     text-align: center;
     color: #64748b !important;
@@ -285,8 +233,6 @@ main.block-container {
     padding-top: 1.5rem;
     border-top: 1px solid #e2e8f0;
 }
-
-/* Assistant header */
 .assistant-header {
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border-radius: 12px;
@@ -294,8 +240,6 @@ main.block-container {
     margin: 1.5rem 0 1rem 0;
     border: 1px solid #e2e8f0;
 }
-
-/* Responsive improvements */
 @media (max-width: 768px) {
     .main-header {
         font-size: 2.2rem;
@@ -304,8 +248,7 @@ main.block-container {
         grid-template-columns: 1fr;
     }
 }
-
-/* ========= FIX: REMOVE EMPTY RECTANGLES ABOVE CHARTS ========= */
+/* Remove empty rectangles above charts */
 .chart-container:empty {
     display: none !important;
     padding: 0 !important;
@@ -325,7 +268,7 @@ div[data-testid="column"]:empty {
     unsafe_allow_html=True,
 )
 
-# ==================== ALTAIR LIGHT THEME & EXPORT ====================
+# ==================== ALTAIR THEME ====================
 def atlas_light_theme():
     return {
         "config": {
@@ -358,10 +301,7 @@ def atlas_light_theme():
                 "anchor": "start",
                 "offset": 10,
             },
-            "header": {
-                "labelFontSize": 12,
-                "titleFontSize": 14,
-            },
+            "header": {"labelFontSize": 12, "titleFontSize": 14},
         }
     }
 
@@ -373,7 +313,7 @@ alt.renderers.set_embed_options(
     actions={"export": True, "source": False, "compiled": False, "editor": False}
 )
 
-# ==================== GOOGLE SHEETS LOADER ====================
+# ==================== DATA LOADER ====================
 @st.cache_data(show_spinner=True)
 def load_data() -> pd.DataFrame:
     url = st.secrets.get("gsheet_url", None)
@@ -397,9 +337,7 @@ def load_data() -> pd.DataFrame:
 
 # ==================== HELPERS ====================
 def value_counts_pct(series: pd.Series) -> pd.DataFrame:
-    """
-    % = count(category) / total_non_null * 100, blanks excluded.
-    """
+    """Percentages based only on non-blank responses."""
     s = series.dropna()
     if s.empty:
         return pd.DataFrame(columns=["category", "pct"])
@@ -412,9 +350,6 @@ def value_counts_pct(series: pd.Series) -> pd.DataFrame:
 
 
 def binned_pct_custom(series: pd.Series, edges: list[float], labels: list[str]) -> pd.DataFrame:
-    """
-    Bin numeric values into custom bins and return % distribution.
-    """
     s = pd.to_numeric(series, errors="coerce").dropna()
     if s.empty:
         return pd.DataFrame(columns=["bin", "pct"])
@@ -427,19 +362,10 @@ def create_section_header(title: str):
     st.markdown(f'<div class="section-header">{title}</div>', unsafe_allow_html=True)
 
 
-def donut_chart_clean(
-    df_pct: pd.DataFrame,
-    cat_field: str,
-    pct_field: str,
-    title: str,
-):
-    """
-    Donut chart WITHOUT value labels on slices.
-    Legend + tooltip only.
-    """
+def donut_chart_clean(df_pct: pd.DataFrame, cat_field: str, pct_field: str, title: str):
+    """Donut chart without value overlays; legend + tooltip only."""
     if df_pct.empty:
         return
-
     data = df_pct.copy().rename(columns={pct_field: "Percent"})
     data[cat_field] = data[cat_field].astype(str)
 
@@ -474,7 +400,10 @@ def bar_chart_from_pct(
     min_pct: float | None = None,
 ):
     """
-    Branded bar chart with % labels, top-N only, sorted descending.
+    Branded bar chart:
+    - Top N only (sorted descending)
+    - Multi-colored bars using PL palette
+    - % labels on bars
     """
     if df_pct.empty:
         return
@@ -509,13 +438,18 @@ def bar_chart_from_pct(
                 title=None,
                 axis=alt.Axis(labelLimit=320, labelOverlap=False, labelFontSize=11),
             ),
+            color=alt.Color(
+                f"{cat_field}:N",
+                legend=None,
+                scale=alt.Scale(range=PL_COLORS),
+            ),
             tooltip=[
                 f"{cat_field}:N",
                 alt.Tooltip("Percent:Q", format=".1f", title="Percentage"),
             ],
         )
 
-        bars = base.mark_bar(color=PL_CORE["minsk"], cornerRadius=4)
+        bars = base.mark_bar(cornerRadius=4)
         labels = base.mark_text(
             align="left",
             baseline="middle",
@@ -547,13 +481,18 @@ def bar_chart_from_pct(
                 axis=alt.Axis(format=".0f", grid=True, gridColor="#f1f5f9"),
                 scale=alt.Scale(domain=[0, domain_max] if domain_max else None),
             ),
+            color=alt.Color(
+                f"{cat_field}:N",
+                legend=None,
+                scale=alt.Scale(range=PL_COLORS),
+            ),
             tooltip=[
                 f"{cat_field}:N",
                 alt.Tooltip("Percent:Q", format=".1f", title="Percentage"),
             ],
         )
 
-        bars = base.mark_bar(color=PL_CORE["minsk"], cornerRadius=4)
+        bars = base.mark_bar(cornerRadius=4)
         labels = base.mark_text(
             align="center",
             baseline="bottom",
@@ -660,7 +599,7 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # ---- Welcome paragraph (Tai text) ----
+    # ---- Welcome text (Tai’s copy) ----
     st.markdown(
         """
 <div class="chart-container" style="margin-top:0;">
@@ -683,7 +622,7 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # ---- Assistant ----
+    # ---- Assistant widget ----
     st.markdown(
         """
         <div class="assistant-header">
@@ -707,7 +646,7 @@ def main():
     if df.empty:
         st.stop()
 
-    # ---- Column names we care about ----
+    # ---- Column names ----
     COL_REGION = "Please select the region where your company is headquartered."
     COL_INDUSTRY = "What industry sector does your company operate in?"
     COL_REVENUE = "What is your company’s estimated annual revenue?"
@@ -717,7 +656,6 @@ def main():
     COL_SALES_CYCLE = "How does your partner-led sales cycle compare to your direct sales cycle?"
     COL_WIN_RATE = "What’s your win rate for deals where partners are involved?"
 
-    # Derived / found columns
     COL_PRIMARY_GOAL = find_col(df, substrings=["main goal for partnerships in the next 12 months"])
     COL_EXEC_EXPECT = find_col(df, substrings=["executive team’s expectations of partnerships"])
     COL_EXPECTED_REV = find_col(df, substrings=["expected to come from partnerships in the next 12 months"])
@@ -735,7 +673,7 @@ def main():
     COL_STRATEGIC_BET = find_col(df, substrings=["Strategic bet", "strategic bet next 12 months"])
     COL_FORECAST_PERF = find_col(df, substrings=["Forecasted performance", "forecasted performance"])
 
-    # Normalized region
+    # RegionStd helper
     if COL_REGION in df.columns:
         df = df.copy()
         df["RegionStd"] = df[COL_REGION].map(normalize_region_label)
@@ -812,7 +750,7 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # Track which columns we explicitly chart so "Additional Insights" can use the rest
+    # Columns already used explicitly
     used_cols = set(
         [
             COL_REGION,
@@ -865,14 +803,12 @@ def main():
     with tab_firmo:
         create_section_header("Company profile")
 
-        # Region donut
         reg_has = "RegionStd" in flt.columns and not flt["RegionStd"].dropna().empty
 
         def reg_chart():
             reg_pct = value_counts_pct(flt["RegionStd"])
             donut_chart_clean(reg_pct, "category", "pct", "HQ region")
 
-        # Revenue donut
         rev_has = COL_REVENUE in flt.columns and not flt[COL_REVENUE].dropna().empty
 
         def rev_chart():
@@ -890,7 +826,6 @@ def main():
 
         two_up_or_full(reg_has, reg_chart, rev_has, rev_chart)
 
-        # Employee donut
         emp_has = COL_EMPLOYEES in flt.columns and not flt[COL_EMPLOYEES].dropna().empty
 
         def emp_chart():
@@ -905,7 +840,6 @@ def main():
             emp_pct_sorted = emp_pct.sort_values("category")
             donut_chart_clean(emp_pct_sorted, "category", "pct", "Total employee count")
 
-        # Industry donut
         ind_has = COL_INDUSTRY in flt.columns and not flt[COL_INDUSTRY].dropna().empty
 
         def ind_chart():
@@ -957,7 +891,6 @@ def main():
                 "Win rate on partner-involved deals",
                 horizontal=False,
                 max_categories=TOP_N_DEFAULT,
-                min_pct=0.0,
             )
             st.markdown(
                 '<div class="chart-caption" style="text-align:center;">'
@@ -985,7 +918,6 @@ def main():
                     "Retention of partner-referred customers",
                     horizontal=False,
                     max_categories=5,
-                    min_pct=0.0,
                 )
                 st.markdown(
                     '<div class="chart-caption" style="text-align:center;">'
@@ -1037,12 +969,10 @@ def main():
                     "Expected share of revenue from partnerships",
                     horizontal=False,
                     max_categories=4,
-                    min_pct=0.0,
                 )
 
             render_container_if(er_has, er_chart)
 
-        # Forward-looking strategy (optional extra)
         create_section_header("Forward-looking strategy (if available)")
 
         if COL_PARTNER_FOCUS and COL_PARTNER_FOCUS in flt.columns:
@@ -1104,11 +1034,8 @@ def main():
 
             render_container_if(mi_has, mi_chart)
 
-        # If you have partnership-type multi-select columns in the data, you can still
-        # wire them here later; for now we assume the impact question is the cleanest slice.
-
     # ======================================================
-    # OPS CHALLENGES & RISKS
+    # CHALLENGES & RISKS
     # ======================================================
     with tab_ops:
         create_section_header("Biggest challenge in scaling the partner program")
@@ -1221,7 +1148,6 @@ def main():
         tools_substr = "What tools do you currently use to manage your partnerships?"
         tools_col = find_col(df, substrings=[tools_substr])
         if tools_col and tools_col in flt.columns:
-            # If this is single-select, treat as a simple bar; if multi-select you can adapt later.
             tools_series = flt[tools_col]
             tools_pct = value_counts_pct(tools_series)
             tools_has = not tools_pct.empty
@@ -1267,30 +1193,42 @@ def main():
         create_section_header("Revenue from marketplaces")
         if COL_MARKETPLACE_REV and COL_MARKETPLACE_REV in flt.columns:
             mp_rev = flt[COL_MARKETPLACE_REV].dropna()
-            mp_has = not mp_rev.empty
+            mp_has_any = not mp_rev.empty
 
             def mp_chart():
-                edges = [0, 5, 15, 30, 50, 101]
-                labels = [
-                    "Less than 5%",
-                    "5–15%",
-                    "15–30%",
-                    "30–50%",
-                    "More than 50%",
-                ]
-                mp_num = pd.to_numeric(mp_rev, errors="coerce").dropna()
-                pct_df = binned_pct_custom(mp_num, edges, labels)
-                if pct_df.empty:
-                    return
-                bar_chart_from_pct(
-                    pct_df,
-                    "bin",
-                    "pct",
-                    "Share of revenue from marketplaces",
-                    horizontal=False,
-                    max_categories=5,
-                    min_pct=0.0,
-                )
+                # Try numeric first; if it fails, treat as categorical buckets
+                mp_num = pd.to_numeric(mp_rev, errors="coerce")
+                if mp_num.notna().sum() > 0 and mp_num.notna().mean() > 0.7:
+                    edges = [0, 5, 15, 30, 50, 101]
+                    labels = [
+                        "Less than 5%",
+                        "5–15%",
+                        "15–30%",
+                        "30–50%",
+                        "More than 50%",
+                    ]
+                    pct_df = binned_pct_custom(mp_num, edges, labels)
+                    if pct_df.empty:
+                        return
+                    bar_chart_from_pct(
+                        pct_df,
+                        "bin",
+                        "pct",
+                        "Share of revenue from marketplaces",
+                        horizontal=False,
+                        max_categories=5,
+                    )
+                else:
+                    cat_pct = value_counts_pct(mp_rev.astype(str))
+                    if cat_pct.empty:
+                        return
+                    bar_chart_from_pct(
+                        cat_pct,
+                        "category",
+                        "pct",
+                        "Share of revenue from marketplaces",
+                        horizontal=False,
+                    )
                 st.markdown(
                     '<div class="chart-caption">'
                     "No specific marketplace names are displayed."
@@ -1298,15 +1236,14 @@ def main():
                     unsafe_allow_html=True,
                 )
 
-            render_container_if(mp_has, mp_chart)
+            render_container_if(mp_has_any, mp_chart)
 
     # ======================================================
-    # ADDITIONAL INSIGHTS – AUTO-GENERATED CHARTS
+    # ADDITIONAL INSIGHTS
     # ======================================================
     with tab_extra:
         create_section_header("Additional insights across remaining questions")
 
-        # Heuristic: skip typical Qualtrics metadata
         skip_substrings = [
             "StartDate",
             "EndDate",
@@ -1321,10 +1258,30 @@ def main():
             "LocationLatitude",
             "LocationLongitude",
             "UserLanguage",
+            "Close Rates",
+            "_Close Rates",
+            "close rate",
+            "close rates",
+        ]
+
+        vendor_keywords = [
+            "google",
+            "salesforce",
+            "crossbeam",
+            "hubspot",
+            "microsoft",
+            "aws",
+            "azure",
+            "gcp",
+            "partnerstack",
+            "zendesk",
+            "slack",
+            "oracle",
+            "sap",
+            "workday",
         ]
 
         extra_cat_cols = []
-        extra_num_cols = []
 
         for col in flt.columns:
             if col in used_cols:
@@ -1339,33 +1296,33 @@ def main():
             if s_nonnull.empty:
                 continue
 
-            # Try numeric % questions (0-100)
+            # treat only categorical (we are dropping the numeric % distributions here)
             numeric_coerced = pd.to_numeric(s_nonnull, errors="coerce")
             fraction_numeric = numeric_coerced.notna().mean()
-
             if fraction_numeric > 0.9:
-                # numeric
-                min_val = numeric_coerced.min()
-                max_val = numeric_coerced.max()
-                if 0 <= min_val <= 100 and 0 <= max_val <= 100:
-                    extra_num_cols.append(col)
-                else:
-                    # ignore non-percentage numeric in this auto section
-                    pass
-            else:
-                # categorical
-                n_unique = s_nonnull.astype(str).nunique()
-                if 1 < n_unique <= 12:
-                    extra_cat_cols.append(col)
-                else:
-                    # skip free-text / very high cardinality
-                    pass
+                # skip numeric metrics to avoid weird 100% distributions
+                continue
 
-        # Categorical charts
+            n_unique = s_nonnull.astype(str).nunique()
+            if n_unique <= 1 or n_unique > 12:
+                continue
+
+            # Skip questions where values contain vendor names
+            lower_vals = s_nonnull.astype(str).str.lower()
+            has_vendor = False
+            for kw in vendor_keywords:
+                if lower_vals.str.contains(kw, na=False).any():
+                    has_vendor = True
+                    break
+            if has_vendor:
+                continue
+
+            extra_cat_cols.append(col)
+
         for col in extra_cat_cols:
             col_title = col
             cat_pct = value_counts_pct(flt[col])
-            has = not cat_pct.empty
+            has_data = not cat_pct.empty
 
             def make_cat_chart(col_name=col, pct_df=cat_pct, title=col_title):
                 bar_chart_from_pct(
@@ -1375,42 +1332,12 @@ def main():
                     title,
                     horizontal=True,
                     max_categories=TOP_N_DEFAULT,
-                    min_pct=None,
                 )
 
-            render_container_if(has, make_cat_chart)
+            render_container_if(has_data, make_cat_chart)
 
-        # Numeric percentage distributions
-        if extra_num_cols:
-            create_section_header("Additional % distributions")
-        for col in extra_num_cols:
-            s = pd.to_numeric(flt[col], errors="coerce").dropna()
-            if s.empty:
-                continue
-
-            edges = [0, 25, 50, 75, 101]
-            labels = ["0–25%", "26–50%", "51–75%", "76–100%"]
-            pct_df = binned_pct_custom(s, edges, labels)
-            if pct_df.empty:
-                continue
-
-            col_title = col
-
-            def make_num_chart(pct_df=pct_df, title=col_title):
-                bar_chart_from_pct(
-                    pct_df,
-                    "bin",
-                    "pct",
-                    title,
-                    horizontal=False,
-                    max_categories=TOP_N_DEFAULT,
-                    min_pct=0.0,
-                )
-
-            render_container_if(True, make_num_chart)
-
-        if not extra_cat_cols and not extra_num_cols:
-            st.info("No additional summarized questions detected beyond the main dashboard sections.")
+        if not extra_cat_cols:
+            st.info("No additional summarized categorical questions detected beyond the main dashboard sections.")
 
     # ---- Footer ----
     st.markdown(
