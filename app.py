@@ -1265,7 +1265,7 @@ def main():
             render_container_if(rep_has, rep_chart)
 
         # New section: Top 3 Budget Line Items (excluding headcount)
-        create_section_header("Top 3 budget line items (excluding headcount)")
+        create_section_header("Top 3 budget line items")
         # Determine multi-select columns for top 3 budget items by prefix
         budget_item_cols = [c for c in flt.columns if COL_TOP3_BUDGET_PREFIX in c]
         if budget_item_cols:
