@@ -1176,31 +1176,6 @@ def main():
 
             render_container_if(ai_has, ai_chart)
 
-        create_section_header("Common tools used to manage partnerships (if present)")
-        tools_substr = "What tools do you currently use to manage your partnerships?"
-        tools_col = find_col(df, substrings=[tools_substr])
-        if tools_col and tools_col in flt.columns:
-            tools_series = flt[tools_col]
-            tools_pct = value_counts_pct(tools_series)
-            tools_has = not tools_pct.empty
-
-            def tools_chart():
-                bar_chart_from_pct(
-                    tools_pct,
-                    "category",
-                    "pct",
-                    "Tools used to manage partnerships (categories)",
-                    horizontal=True,
-                )
-                st.markdown(
-                    '<div class="chart-caption">'
-                    "Tool names are shown as generic categories only."
-                    "</div>",
-                    unsafe_allow_html=True,
-                )
-
-            render_container_if(tools_has, tools_chart)
-
     # ======================================================
     # MARKETPLACES
     # ======================================================
