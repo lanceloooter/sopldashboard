@@ -294,26 +294,27 @@ def atlas_light_theme():
         "config": {
             "view": {"stroke": "transparent"},
             "background": "#ffffff",
-            "range": {
-                "category": PL_COLORS,
-            },
+            "range": {"category": PL_COLORS},
             "axis": {
                 "labelColor": "#475569",
                 "titleColor": "#020617",
                 "titleFontWeight": 600,
-                "labelFontWeight": 600,  # bold axis labels
+                "labelFontWeight": 600,
                 "gridColor": "#f1f5f9",
                 "domainColor": "#d4d4d8",
-                "labelLimit": 0,  # no truncation / ellipsis
+                "labelLimit": 0,
                 "labelFontSize": 11,
                 "titleFontSize": 12,
             },
             "legend": {
                 "labelColor": "#475569",
                 "titleColor": "#020617",
-                "titleFontWeight": 600,
-                "labelFontSize": 11,
-                "titleFontSize": 12,
+                "titleFontWeight": 700,
+                "labelFontWeight": 600,
+                "labelFontSize": 14,   # bigger legend text
+                "titleFontSize": 14,
+                "symbolSize": 200,     # larger legend bullets
+                "symbolType": "circle",
             },
             "title": {
                 "color": "#020617",
@@ -322,7 +323,6 @@ def atlas_light_theme():
                 "anchor": "start",
                 "offset": 10,
             },
-            "header": {"labelFontSize": 12, "titleFontSize": 14},
         }
     }
 
