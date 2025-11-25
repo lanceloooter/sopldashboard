@@ -1,6 +1,5 @@
 import altair as alt
 import pandas as pd
-import pydeck as pdk
 import streamlit as st
 import streamlit.components.v1 as components
 import re
@@ -299,10 +298,10 @@ def atlas_light_theme():
                 "labelColor": "#475569",
                 "titleColor": "#020617",
                 "titleFontWeight": 600,
-                "labelFontWeight": 600,
+                "labelFontWeight": 600,  # Bold axis labels
                 "gridColor": "#f1f5f9",
                 "domainColor": "#d4d4d8",
-                "labelLimit": 0,
+                "labelLimit": 0,  # prevent truncation
                 "labelFontSize": 11,
                 "titleFontSize": 12,
             },
@@ -311,9 +310,9 @@ def atlas_light_theme():
                 "titleColor": "#020617",
                 "titleFontWeight": 700,
                 "labelFontWeight": 600,
-                "labelFontSize": 14,   # bigger legend text
+                "labelFontSize": 14,
                 "titleFontSize": 14,
-                "symbolSize": 200,     # larger legend bullets
+                "symbolSize": 200,
                 "symbolType": "circle",
             },
             "title": {
@@ -323,6 +322,7 @@ def atlas_light_theme():
                 "anchor": "start",
                 "offset": 10,
             },
+            "header": {"labelFontSize": 12, "titleFontSize": 14},
         }
     }
 
@@ -337,11 +337,11 @@ alt.renderers.set_embed_options(
 # ==================== DATA LOADER ====================
 @st.cache_data(show_spinner=True)
 def load_data() -> pd.DataFrame:
+    """Load survey data from Google Sheets exported as CSV. The URL should be set in Streamlit secrets."""
     url = st.secrets.get("gsheet_url", None)
     if not url:
         st.error(
-            "❌ Missing gsheet_url in Streamlit secrets. "
-            "Add it in your app settings as `gsheet_url = \"...\"`."
+            "❌ Missing gsheet_url in Streamlit secrets. Add it in your app settings as `gsheet_url = \"...\"`."
         )
         return pd.DataFrame()
 
@@ -358,7 +358,7 @@ def load_data() -> pd.DataFrame:
 
 # ==================== HELPERS ====================
 def value_counts_pct(series: pd.Series) -> pd.DataFrame:
-    """Percentages based only on non-blank responses."""
+    """Return a dataframe with categories and percentages of non-null responses."""
     s = series.dropna()
     if s.empty:
         return pd.DataFrame(columns=["category", "pct"])
@@ -371,6 +371,7 @@ def value_counts_pct(series: pd.Series) -> pd.DataFrame:
 
 
 def binned_pct_custom(series: pd.Series, edges: list[float], labels: list[str]) -> pd.DataFrame:
+    """Convert a numeric series into bins and compute percentages."""
     s = pd.to_numeric(series, errors="coerce").dropna()
     if s.empty:
         return pd.DataFrame(columns=["bin", "pct"])
@@ -384,7 +385,7 @@ def create_section_header(title: str):
 
 
 def donut_chart_clean(df_pct: pd.DataFrame, cat_field: str, pct_field: str, title: str):
-    """Donut chart without % overlays."""
+    """Render a donut chart with multi-color arcs and tooltips."""
     if df_pct.empty:
         return
     data = df_pct.copy().rename(columns={pct_field: "Percent"})
@@ -420,9 +421,7 @@ def bar_chart_from_pct(
     max_categories: int | None = TOP_N_DEFAULT,
     min_pct: float | None = None,
 ):
-    """
-    Branded bar chart with multi-color bars and % labels.
-    """
+    """Render a bar chart with optional horizontal orientation and category truncation."""
     if df_pct.empty:
         return
 
@@ -486,10 +485,7 @@ def bar_chart_from_pct(
                 f"{cat_field}:N",
                 sort="-y",
                 title=None,
-                axis=alt.Axis(
-                    labelOverlap=False,
-                    labelAngle=0,
-                ),
+                axis=alt.Axis(labelOverlap=False, labelAngle=0),
             ),
             y=alt.Y(
                 "Percent:Q",
@@ -541,6 +537,7 @@ def normalize_region_label(x):
 
 
 def find_col(df: pd.DataFrame, exact: str | None = None, substrings: list[str] | None = None):
+    """Return the first column in df that matches an exact name or contains any substring."""
     if exact and exact in df.columns:
         return exact
     if substrings:
@@ -552,6 +549,7 @@ def find_col(df: pd.DataFrame, exact: str | None = None, substrings: list[str] |
 
 
 def normalize_yes_no(series: pd.Series) -> pd.Series:
+    """Normalize various yes/no representations into Yes/No strings."""
     s = series.dropna()
     if s.empty:
         return series
@@ -578,6 +576,7 @@ def normalize_yes_no(series: pd.Series) -> pd.Series:
 
 
 def render_container_if(has_data: bool, chart_fn):
+    """Render a chart inside a styled container only if there is data."""
     if not has_data:
         return
     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
@@ -586,6 +585,7 @@ def render_container_if(has_data: bool, chart_fn):
 
 
 def two_up_or_full(left_has: bool, left_fn, right_has: bool, right_fn):
+    """Display two charts side-by-side if both exist, otherwise show one full width."""
     if left_has and right_has:
         c1, c2 = st.columns(2)
         with c1:
@@ -599,7 +599,7 @@ def two_up_or_full(left_has: bool, left_fn, right_has: bool, right_fn):
 
 
 def clean_question_title(col_name: str) -> str:
-    """Remove _Column2 etc and stray underscores in question labels."""
+    """Clean Qualtrics auto-generated column names (e.g., remove _Column2)."""
     title = re.sub(r"_Column\d+", "", col_name)
     title = title.replace("_", " ")
     title = re.sub(r"\s+", " ", title).strip()
@@ -607,31 +607,24 @@ def clean_question_title(col_name: str) -> str:
 
 
 def extract_platform_tool(col_name: str) -> str | None:
-    """
-    For columns like:
-    'Which platforms do you plan to use more, less, or steady? _Amplify_Column2'
-    return 'Amplify'.
-    """
+    """Extract the platform/tool name from Qualtrics multiple-column names."""
     if "Which platforms do you plan to use more, less, or steady?" not in col_name:
         return None
-    # Split at '?'
     parts = col_name.split("?", 1)
     if len(parts) != 2:
         return None
     tail = parts[1]
-    # Remove Column suffix
     tail = re.sub(r"_Column\d+", "", tail)
-    # Strip underscores and spaces
     tail = tail.strip(" _-")
     if not tail:
         return None
-    # Clean remaining underscores/brackets
     tail = tail.replace("_", " ")
     tail = re.sub(r"\s+", " ", tail)
     return tail.strip()
 
 
 def render_filter_pills(selected_regions, selected_revenue, selected_employees):
+    """Render pills summarizing selected filters under the header."""
     pills = []
     if selected_regions:
         pills.append(f"Region: <span>{', '.join(selected_regions)}</span>")
@@ -651,7 +644,6 @@ def render_filter_pills(selected_regions, selected_revenue, selected_employees):
     html = "<div class='filter-pill-row'>" + "".join(
         f"<div class='filter-pill'>{p}</div>" for p in pills
     ) + "</div>"
-
     st.markdown(html, unsafe_allow_html=True)
 
 
@@ -662,36 +654,13 @@ def main():
     # ---- Header ----
     st.markdown(
         """
-<div class="header-row">
-  <div>
-    <div class="main-header">STATE OF PARTNERSHIP LEADERS 2025</div>
-    <div class="sub-header">Strategic Insights Dashboard • Partnership Performance Analytics</div>
-  </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-    # ---- Welcome text (Tai copy) ----
-    st.markdown(
-        """
-<div class="chart-container" style="margin-top:0;">
-  <p>
-  Welcome to the State of Partnership Leaders 2025 dashboard. In prior years, we have released a 40+ page document with all of the data but with the advancements in AI adoption, we are trying something new.
-  </p>
-  <p><strong>Below you will find:</strong></p>
-  <ul>
-    <li>
-      <strong>PartnerOps Agent</strong> - An AI agent trained on the SOPL dataset - think of it as your Partner Operations collaborator as you review the data.
-      You can ask it questions about the data or about your own strategy, we will not collect any of your inputed data.
-    </li>
-    <li>
-      <strong>SOPL Data Dashboard</strong> - You will find all of the data from the report in an interactive dashboard below.
-      Use the filters on the left to customize the data to your interests and the Performance, and Partner Impact tabs to navigate the main themes.
-    </li>
-  </ul>
-</div>
-""",
+    <div class="header-row">
+      <div>
+        <div class="main-header">STATE OF PARTNERSHIP LEADERS 2025</div>
+        <div class="sub-header">Strategic Insights Dashboard • Partnership Performance Analytics</div>
+      </div>
+    </div>
+    """,
         unsafe_allow_html=True,
     )
 
@@ -708,10 +677,11 @@ def main():
         unsafe_allow_html=True,
     )
 
+    # embed pickaxe widget (if required; else could be removed)
     pickaxe_html = """
-<div id="deployment-5870ff7d-8fcf-4395-976b-9e9fdefbb0ff" style="width:100%; max-width:1200px; margin:0 auto;"></div>
-<script src="https://studio.pickaxe.co/api/embed/bundle.js" defer></script>
-"""
+    <div id="deployment-5870ff7d-8fcf-4395-976b-9e9fdefbb0ff" style="width:100%; max-width:1200px; margin:0 auto;"></div>
+    <script src="https://studio.pickaxe.co/api/embed/bundle.js" defer></script>
+    """
     components.html(pickaxe_html, height=650, scrolling=False)
 
     # ---- Load data ----
@@ -722,29 +692,38 @@ def main():
     # ---- Column names ----
     COL_REGION = "Please select the region where your company is headquartered."
     COL_INDUSTRY = "What industry sector does your company operate in?"
-    COL_REVENUE = "What is your company’s estimated annual revenue?"
-    COL_EMPLOYEES = "What is your company’s total number of employees?"
+    COL_REVENUE = "What is your companys estimated annual revenue?"  # note: single straight apostrophe replaced with plain s
+    COL_EMPLOYEES = "What is your companys total number of employees?"  # same apostrophe
     COL_DEAL_SIZE = "How does your average deal size involving partners compare to direct or non-partner deals?"
     COL_CAC = "How does your customer acquisition cost (CAC) from partners compared to direct sales and marketing?"
     COL_SALES_CYCLE = "How does your partner-led sales cycle compare to your direct sales cycle?"
-    COL_WIN_RATE = "What’s your win rate for deals where partners are involved?"
+    COL_WIN_RATE = "What’s your win rate for deals where partners are involved?"  # partner-influenced
 
+    # dynamic column detection for optional fields
     COL_PRIMARY_GOAL = find_col(df, substrings=["main goal for partnerships in the next 12 months"])
-    COL_EXEC_EXPECT = find_col(df, substrings=["executive team’s expectations of partnerships"])
+    COL_EXEC_EXPECT = find_col(df, substrings=["executive teams expectations of partnerships", "executive team’s expectations of partnerships"])
     COL_EXPECTED_REV = find_col(df, substrings=["expected to come from partnerships in the next 12 months"])
     COL_RETENTION = find_col(df, substrings=["retention rate for partner-referred customers"])
-    COL_MOST_IMPACTFUL_TYPE = find_col(df, substrings=["most impact on your organization", "most impactful"])
+    COL_MOST_IMPACTFUL_TYPE = find_col(df, substrings=["most impact", "most impactful type"])
     COL_BIGGEST_CHALLENGE = find_col(df, substrings=["biggest challenge in scaling your partner program"])
     COL_MISS_GOALS_REASON = find_col(df, substrings=["most likely reason your Partnerships team could miss its goals"])
     COL_TEAM_SIZE = find_col(df, substrings=["people are on your Partnerships team"])
-    COL_BUDGET = find_col(df, substrings=["annual budget", "Partnerships team’s annual budget"])
+    COL_BUDGET = find_col(df, substrings=["annual budget", "Partnerships teams annual budget"])
     COL_USE_TECH = find_col(df, substrings=["technology or automation tools to manage your partner ecosystem"])
     COL_USE_AI = find_col(df, substrings=["using AI in your partner organization"])
-    COL_MARKETPLACE_LISTED = find_col(df, substrings=["listed in at least one third-party marketplace", "marketplace"])
-    COL_MARKETPLACE_REV = find_col(df, substrings=["revenue comes through cloud marketplaces"])
+    COL_MARKETPLACE_LISTED = find_col(df, substrings=["company listed in", "listed in marketplaces"])
+    COL_MARKETPLACE_REV = find_col(df, substrings=["total revenue comes through cloud marketplaces", "revenue comes through cloud marketplaces"])
     COL_PARTNER_FOCUS = find_col(df, substrings=["focus next 12 months"])
     COL_STRATEGIC_BET = find_col(df, substrings=["Strategic bet", "strategic bet next 12 months"])
-    COL_FORECAST_PERF = find_col(df, substrings=["Forecasted performance", "forecasted performance"])
+    COL_FORECAST_PERF = find_col(df, substrings=["Forecasted performance", "forecasting your performance"])
+
+    # Additional fields from updated dataset
+    COL_REPORTING = find_col(df, substrings=["report to", "majority of your partner organization report"])
+    COL_TOP3_BUDGET_PREFIX = "What are the top 3 budget line items for your Partnerships organization, excluding headcount?"
+    # training / enablement
+    COL_TRAINING = find_col(df, substrings=["level of training", "training or enablement"])
+    # partner satisfaction measurement (multi-select)
+    SAT_PREFIX = "How do you measure partner satisfaction?"
 
     # RegionStd helper
     if COL_REGION in df.columns:
@@ -808,21 +787,21 @@ def main():
     create_section_header("About this dashboard and dataset")
     st.markdown(
         """
-<div class="chart-container" style="margin-top:0;">
-  <p>
-  Respondents represent organizations from four key regions, namely North America (NA),
-  Europe the Middle East and Africa (EMEA), Asia Pacific (APAC), and Latin America (LATAM),
-  and include companies of varying sizes and revenue levels ranging from less than 50 million
-  dollars to over 10 billion dollars in annual revenue. All survey waves ensure a minimum of
-  100 qualified respondents each year to provide consistent and data-driven insights across regions
-  and industries.
-  </p>
-  <p style="margin-top:0.5rem;">
-  Use the filters on the left (Region, Annual revenue band, Total employees) to narrow the view;
-  the charts in every tab update automatically to reflect the current selection.
-  </p>
-</div>
-""",
+    <div class="chart-container" style="margin-top:0;">
+      <p>
+      Respondents represent organizations from four key regions, namely North America (NA),
+      Europe the Middle East and Africa (EMEA), Asia Pacific (APAC), and Latin America (LATAM),
+      and include companies of varying sizes and revenue levels ranging from less than 50 million
+      dollars to over 10 billion dollars in annual revenue. All survey waves ensure a minimum of
+      100 qualified respondents each year to provide consistent and data-driven insights across regions
+      and industries.
+      </p>
+      <p style="margin-top:0.5rem;">
+      Use the filters on the left (Region, Annual revenue band, Total employees) to narrow the view;
+      the charts in every tab update automatically to reflect the current selection.
+      </p>
+    </div>
+    """,
         unsafe_allow_html=True,
     )
 
@@ -854,6 +833,8 @@ def main():
             COL_PARTNER_FOCUS,
             COL_STRATEGIC_BET,
             COL_FORECAST_PERF,
+            COL_REPORTING,
+            COL_TRAINING,
             "RegionStd",
         ]
         if c is not None
@@ -953,6 +934,7 @@ def main():
             sc_pct = value_counts_pct(flt[COL_SALES_CYCLE])
             bar_chart_from_pct(sc_pct, "category", "pct", "Partner-led sales cycle vs direct", horizontal=True)
 
+        # existing win rate chart using binned values from general dataset; partner-influenced deals
         wr_has = COL_WIN_RATE in flt.columns and not flt[COL_WIN_RATE].dropna().empty
 
         def wr_chart():
@@ -978,6 +960,29 @@ def main():
 
         two_up_or_full(sc_has, sc_chart, wr_has, wr_chart)
 
+        # Additional performance metric: partner-influenced win rate (same as COL_WIN_RATE but separate chart)
+        create_section_header("Partner-influenced deal outcomes")
+        if COL_WIN_RATE and COL_WIN_RATE in flt.columns:
+            wr_series = pd.to_numeric(flt[COL_WIN_RATE], errors="coerce").dropna()
+            win2_has = not wr_series.empty
+
+            def wr2_chart():
+                edges = [0, 25, 50, 75, 101]
+                labels = ["0–25%", "26–50%", "51–75%", "76–100%"]
+                pct_df = binned_pct_custom(wr_series, edges, labels)
+                if pct_df.empty:
+                    return
+                bar_chart_from_pct(
+                    pct_df,
+                    "bin",
+                    "pct",
+                    "Win rate for partner-influenced deals",
+                    horizontal=False,
+                    max_categories=4,
+                )
+            render_container_if(win2_has, wr2_chart)
+
+        # Retention of partner-referred customers
         create_section_header("Retention of partner-referred customers")
         if COL_RETENTION and COL_RETENTION in flt.columns:
             ret_has = not flt[COL_RETENTION].dropna().empty
@@ -1147,6 +1152,38 @@ def main():
 
             render_container_if(mg_has, mg_chart)
 
+        # Bonus: How partner satisfaction is measured (multi-select checkboxes)
+        create_section_header("How partner satisfaction is measured")
+        sat_cols = [c for c in flt.columns if SAT_PREFIX in c]
+        if sat_cols:
+            counts = {}
+            for col in sat_cols:
+                s = pd.to_numeric(flt[col], errors="coerce")
+                val = s.sum(skipna=True)
+                if val > 0:
+                    # Extract the part after the underscore for label
+                    label = col.split("_")[-1]
+                    counts[label] = val
+            if counts:
+                df_sat = (
+                    pd.DataFrame.from_dict(counts, orient="index", columns=["count"])
+                    .reset_index()
+                    .rename(columns={"index": "category"})
+                )
+                df_sat["pct"] = (df_sat["count"] / df_sat["count"].sum()) * 100
+
+                def sat_chart():
+                    bar_chart_from_pct(
+                        df_sat,
+                        "category",
+                        "pct",
+                        "How partner satisfaction is measured",
+                        horizontal=True,
+                        max_categories=12,
+                    )
+
+                render_container_if(True, sat_chart)
+
     # ======================================================
     # TEAM & INVESTMENT
     # ======================================================
@@ -1186,6 +1223,77 @@ def main():
                 )
 
             render_container_if(bud_has, bud_chart)
+
+        # New section: Where the Partnerships team reports (reporting structure)
+        create_section_header("Where the Partnerships team reports")
+        if COL_REPORTING and COL_REPORTING in flt.columns:
+            rep_series = flt[COL_REPORTING].dropna().astype(str)
+            rep_pct = value_counts_pct(rep_series)
+            rep_has = not rep_pct.empty
+
+            def rep_chart():
+                bar_chart_from_pct(
+                    rep_pct,
+                    "category",
+                    "pct",
+                    "Reporting line of the Partnerships team",
+                    horizontal=True,
+                    max_categories=8,
+                )
+
+            render_container_if(rep_has, rep_chart)
+
+        # New section: Top 3 Budget Line Items (excluding headcount)
+        create_section_header("Top 3 budget line items (excluding headcount)")
+        # Determine multi-select columns for top 3 budget items by prefix
+        budget_item_cols = [c for c in flt.columns if COL_TOP3_BUDGET_PREFIX in c]
+        if budget_item_cols:
+            counts = {}
+            for col in budget_item_cols:
+                s = pd.to_numeric(flt[col], errors="coerce")
+                val = s.sum(skipna=True)
+                if val > 0:
+                    # Label is part after underscore (split at last underscore)
+                    label = col.split("_")[-1]
+                    counts[label] = val
+            if counts:
+                df_bud = (
+                    pd.DataFrame.from_dict(counts, orient="index", columns=["count"])
+                    .reset_index()
+                    .rename(columns={"index": "category"})
+                )
+                df_bud["pct"] = (df_bud["count"] / df_bud["count"].sum()) * 100
+
+                def budget_items_chart():
+                    bar_chart_from_pct(
+                        df_bud,
+                        "category",
+                        "pct",
+                        "Top 3 Budget Line Items",
+                        horizontal=True,
+                        max_categories=10,
+                    )
+
+                render_container_if(True, budget_items_chart)
+
+        # Bonus: Partner training & enablement level provided
+        create_section_header("Partner training & enablement level provided")
+        if COL_TRAINING and COL_TRAINING in flt.columns:
+            tr_series = flt[COL_TRAINING].dropna().astype(str)
+            tr_pct = value_counts_pct(tr_series)
+            tr_has = not tr_pct.empty
+
+            def tr_chart():
+                bar_chart_from_pct(
+                    tr_pct,
+                    "category",
+                    "pct",
+                    "Partner training & enablement level",
+                    horizontal=True,
+                    max_categories=8,
+                )
+
+            render_container_if(tr_has, tr_chart)
 
     # ======================================================
     # TECHNOLOGY & AI
@@ -1297,14 +1405,14 @@ def main():
 
         st.markdown(
             """
-<div class="chart-container" style="margin-top:0;">
-  <p style="margin-bottom:0.5rem;">
-    This section surfaces additional multiple-choice questions that are not already covered in the main tabs.
-    Vendor-specific, numeric-only, and free-text style questions are excluded to keep the view focused on
-    interpretable categorical insights.
-  </p>
-</div>
-""",
+    <div class="chart-container" style="margin-top:0;">
+      <p style="margin-bottom:0.5rem;">
+        This section surfaces additional multiple-choice questions that are not already covered in the main tabs.
+        Vendor-specific, numeric-only, and free-text style questions are excluded to keep the view focused on
+        interpretable categorical insights.
+      </p>
+    </div>
+    """,
             unsafe_allow_html=True,
         )
 
@@ -1358,40 +1466,29 @@ def main():
                 continue
             if col == "RegionStd":
                 continue
-
             series = flt[col]
             s_nonnull = series.dropna()
             if s_nonnull.empty:
                 continue
-
-            # skip numeric-only derived % metrics
             numeric_coerced = pd.to_numeric(s_nonnull, errors="coerce")
             if numeric_coerced.notna().mean() > 0.9:
                 continue
-
-            # skip questions with too many categories
             n_unique = s_nonnull.astype(str).nunique()
             if n_unique <= 1 or n_unique > 12:
                 continue
-
-            # skip vendor-specific questions
             if s_nonnull.astype(str).str.contains(vendor_pattern, na=False).any():
                 continue
-
             cat_pct = value_counts_pct(series)
             if cat_pct.empty:
                 continue
-
             extra_questions.append({"col": col, "pct": cat_pct})
 
-        # limit to first 10 to avoid long scrolling
         extra_questions = extra_questions[:10]
 
         for item in extra_questions:
             col = item["col"]
             pct_df = item["pct"]
             n_cat = len(pct_df)
-
             tool_name = extract_platform_tool(col)
             if tool_name:
                 title = f"{tool_name} – Which platforms do you plan to use more, less, or steady?"
@@ -1399,7 +1496,6 @@ def main():
                 title = clean_question_title(col)
 
             def make_chart(pct_df=pct_df, title=title, tool_name=tool_name, n_cat=n_cat):
-                # mix donut vs bar depending on categories
                 if n_cat <= 5:
                     donut_chart_clean(pct_df, "category", "pct", title)
                 else:
