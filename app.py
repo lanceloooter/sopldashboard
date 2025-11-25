@@ -439,7 +439,8 @@ def bar_chart_from_pct(
 
     data["PercentLabel"] = data["Percent"].map(lambda v: f"{v:.1f}%")
     max_percent = data["Percent"].max()
-    domain_max = 100 if max_percent <= 100 else None
+    # Let Altair automatically determine the domain for the axis so that bars don't always extend to 100%
+    domain_max = None
 
     if horizontal:
         base = alt.Chart(data).encode(
@@ -664,6 +665,29 @@ def main():
         unsafe_allow_html=True,
     )
 
+    # ---- Introduction ----
+    st.markdown(
+        """
+<div class="chart-container" style="margin-top:0;">
+  <p>
+  Welcome to the State of Partnership Leaders 2025 dashboard. In prior years, we have released a 40+ page document with all of the data but with the advancements in AI adoption, we are trying something new.
+  </p>
+  <p><strong>Below you will find:</strong></p>
+  <ul>
+    <li>
+      <strong>PartnerOps Agent</strong> - An AI agent trained on the SOPL dataset - think of it as your Partner Operations collaborator as you review the data.
+      You can ask it questions about the data or about your own strategy, we will not collect any of your inputed data.
+    </li>
+    <li>
+      <strong>SOPL Data Dashboard</strong> - You will find all of the data from the report in an interactive dashboard below.
+      Use the filters on the left to customize the data to your interests and the Performance, and Partner Impact tabs to navigate the main themes.
+    </li>
+  </ul>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
     # ---- Assistant widget ----
     st.markdown(
         """
@@ -859,6 +883,18 @@ def main():
         if c is not None
     }
 
+    # Also exclude individual columns used for partnership type summaries from additional insights
+    partnership_have_cols = [
+        col for col in df.columns
+        if "Which of the following Partnership types does your company have?" in col
+    ]
+    partnership_expand_cols = [
+        col for col in df.columns
+        if "which partnership types are you planning to expand" in col.lower()
+    ]
+    for col in partnership_have_cols + partnership_expand_cols:
+        used_cols.add(col)
+
     # ---- Tabs ----
     tab_firmo, tab_perf, tab_strategy, tab_portfolio, tab_ops, tab_team, tab_tech, tab_market, tab_extra = st.tabs(
         [
@@ -966,7 +1002,7 @@ def main():
                 pct_df,
                 "bin",
                 "pct",
-                "Win rate on partner-involved deals",
+                "Win rate for partner-influenced deals",
                 horizontal=False,
                 max_categories=TOP_N_DEFAULT,
             )
@@ -979,27 +1015,7 @@ def main():
 
         two_up_or_full(sc_has, sc_chart, wr_has, wr_chart)
 
-        # Additional performance metric: partner-influenced win rate (same as COL_WIN_RATE but separate chart)
-        create_section_header("Partner-influenced deal outcomes")
-        if COL_WIN_RATE and COL_WIN_RATE in flt.columns:
-            wr_series = pd.to_numeric(flt[COL_WIN_RATE], errors="coerce").dropna()
-            win2_has = not wr_series.empty
-
-            def wr2_chart():
-                edges = [0, 25, 50, 75, 101]
-                labels = ["0–25%", "26–50%", "51–75%", "76–100%"]
-                pct_df = binned_pct_custom(wr_series, edges, labels)
-                if pct_df.empty:
-                    return
-                bar_chart_from_pct(
-                    pct_df,
-                    "bin",
-                    "pct",
-                    "Win rate for partner-influenced deals",
-                    horizontal=False,
-                    max_categories=4,
-                )
-            render_container_if(win2_has, wr2_chart)
+        # Note: the win rate section above already displays the partner-influenced win rate, so we avoid duplicating the same chart.
 
         # Retention of partner-referred customers
         create_section_header("Retention of partner-referred customers")
