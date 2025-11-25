@@ -443,12 +443,14 @@ def bar_chart_from_pct(
     domain_max = None
 
     if horizontal:
+        # If domain_max is None, let Altair choose the domain automatically
+        scale_x = alt.Scale(domain=[0, domain_max]) if domain_max is not None else alt.Scale()
         base = alt.Chart(data).encode(
             x=alt.X(
                 "Percent:Q",
                 title="Share of respondents (%)",
                 axis=alt.Axis(format=".0f", grid=True, gridColor="#f1f5f9"),
-                scale=alt.Scale(domain=[0, domain_max] if domain_max else None),
+                scale=scale_x,
             ),
             y=alt.Y(
                 f"{cat_field}:N",
@@ -481,6 +483,7 @@ def bar_chart_from_pct(
             title=alt.TitleParams(title, fontSize=16, fontWeight=700, anchor="start"),
         ).configure_axisY(labelPadding=8)
     else:
+        scale_y = alt.Scale(domain=[0, domain_max]) if domain_max is not None else alt.Scale()
         base = alt.Chart(data).encode(
             x=alt.X(
                 f"{cat_field}:N",
@@ -492,7 +495,7 @@ def bar_chart_from_pct(
                 "Percent:Q",
                 title="Share of respondents (%)",
                 axis=alt.Axis(format=".0f", grid=True, gridColor="#f1f5f9"),
-                scale=alt.Scale(domain=[0, domain_max] if domain_max else None),
+                scale=scale_y,
             ),
             color=alt.Color(
                 f"{cat_field}:N",
