@@ -10,4 +10,3 @@ streamlit run app.py
 ## Deploy to Streamlit Cloud (via GitHub)
 1. Push this folder to a new GitHub repo.
 2. In Streamlit Cloud → New app → choose this repo → `app.py` as the main file.
-3. (Optional) Replace `data/sopl_2024_template.csv` with your real CSV or upload at runtime.
