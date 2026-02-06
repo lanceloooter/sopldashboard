@@ -1,6 +1,6 @@
 # SOPL 2025 – Interactive Dashboard (Template)
 
-Use this as a starting point. It ships with a small sample CSV at.
+Use this as a starting point. It ships with a small sample CSV.
 ## Run locally
 ```bash
 pip install -r requirements.txt
